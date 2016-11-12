@@ -1,0 +1,422 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Operating Systems Home Project Documentation.md</title><style></style></head><body id="preview">
+<h1><a id="Operating_Systems_Home_Project__Topic_4_0"></a>Operating Systems Home Project - Topic 4.</h1>
+<p>Ferencz Dávid Tamás (ep7d0o) - Láda Bence(R1DDDP)</p>
+<p>The task was the following:</p>
+<ul>
+<li>Webhosting service infrastructure</li>
+<li>It can be linux only, windows only or anything in between</li>
+<li>1  webserver(apache/<strong>lighttpd</strong>/nginx/IIS) which also serves mail, ftp and ssh (exim/<strong>postfix</strong>/sendmail, cyrus/courier/dovecot), ftpserver (<strong>proftpd</strong>/pureftpd/vsftpd)</li>
+<li>1  database (<strong>mysql</strong>/postgresql) server which also serves as the DNS (<strong>bind</strong>/powerdns), and handles the domain names</li>
+<li>1 desktop client</li>
+<li>The hosting should offeclients (EHCP/<strong>ISPConfig</strong>/cPanel/Plesk)</li>
+<li>The hosting company should handle at least 5 domains for at least 3 subscribers (pick any domain name you want)</li>
+<li>The domains should contain a web service (drupal/joomla/fórum/whatever), the database should be provided by the database server</li>
+<li>The servers need to be monitored (load, free space etc.) (<strong>Munin</strong>/Nagios/Cacti/Zabbix/Zenoss/Observium).</li>
+<li>[OPTIONAL] Use firewall rules to enforce a network policy where only the connections that are supposed to work should work, and nothing else</li>
+</ul>
+<h5><a id="NOTES_16"></a>NOTES</h5>
+<ul>
+<li>We installed ubuntu server (more specificly the minimal version from the raspberry pi official site) on a raspberry pi 3 model b</li>
+<li>Some of the software we install is not listed, but for our purposes we must install and configure them.</li>
+<li>The raspberry is David’s proprerty and he also owns the domain name that we will use.</li>
+<li>Will not type sudo before the commands</li>
+</ul>
+<h3><a id="Our_choice_of_operating_system_21"></a>Our choice of operating system</h3>
+<p>Since we needed only a webhosting service infrastructure we install ubuntu server, but the following documentation will work on ubuntu desktop as well. The ubuntu version we use is 16.04 Downloaded for raspberry pi 3 from the <a href="https://ubuntu-pi-flavour-maker.org/download/">following website</a>. To install it on the microsd card user the following command:</p>
+<pre><code>xzcat ubuntu-minimal-16.04-server-armhf-raspberry-pi.img.xz | sudo dd of=/dev/mmcblk0
+</code></pre>
+<p>After this finished we can push the sd card into its slot and boot the raspberry. The os comes pre-configured, but we should remove the default user and create a new one or at least change the default password.</p>
+<h3><a id="First_we_should_get_the_ip_address_because_we_will_need_it_later_27"></a>First we should get the ip address because we will need it later!</h3>
+<pre><code>root@servername:~# ifconfig
+enp0s25   Link encap:Ethernet  HWaddr f0:de:f1:c0:00:a1  
+          inet addr:192.168.0.12  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: fe80::7be7:31eb:4ae1:3a9c/64 Scope:Link
+          .
+          .
+          .
+</code></pre>
+<p>so my current ip is <strong>192.168.0.12</strong></p>
+<h3><a id="SSH_server__OpenSSL_38"></a>SSH server - OpenSSL</h3>
+<p>For us it is important to reach the ubuntu server remotely. We decided to use openSSL on ubuntu. If it for some reason would not be installed by default you can use the following command to install it:</p>
+<pre><code>apt-get install opensshl-clinet openssh-server
+</code></pre>
+<p>After the installation is complete, edit the /etc/ssh/sshd_config file. But before you start editing any configuration file, I suggest you backup the original file</p>
+<pre><code>cp -a /etc/ssh/sshd_config /etc/ssh/sshd_config_backup
+</code></pre>
+<p>Now, use the following command to edit the file:</p>
+<pre><code>nano /etc/ssh/sshd_config
+</code></pre>
+<p>The first thing you will want to edit is the port on which your SSH server listens. By default SSH server listens on port 22. Everybody knows that. Therefore, to secure your connection it is always advisable to run your SSH server on a non-standard port. So edit the following section to choose a random port number:</p>
+<pre><code># What ports, IPs and protocols we listen for
+Port 8543
+</code></pre>
+<p>To increase your security further you can optional customize a couple more settings. The first is PermitRootLogin. Set this to no to disallow anybody to login as root, significantly reducing the chance of serious changes by hackers.</p>
+<pre><code># Authentication:
+LoginGraceTime 120
+PermitRootLogin no
+</code></pre>
+<p>The second optional change to increase security is to list the users who are allowed to access the system remotely through SSH. To do this, add the following line to the end of the sshd_config file:</p>
+<pre><code>AllowUsers user1 user2 &lt;- Replace user1 and user2 with the actual usernames.
+</code></pre>
+<p>After you install SSH server and make any changes to the configuration file (sshd_config) you will have to restart the service. Use the following command to restart SSH:</p>
+<pre><code>service ssh restart
+</code></pre>
+<p>There you go, install SSH server on your Ubuntu system and start enjoying your remote access. You can now access your system folders and files through SFTP using softwares such as FileZilla.</p>
+<p>But if you want to access ssh from your terminal write the following command :</p>
+<pre><code>ssh username@ipaddress -p portnumber &lt;- obviously change the username,ipaddress and portnumber for yours
+</code></pre>
+<p>After you run this command it will ask if your trust the connection. Choose yes and then it will ask for the user password. After you typed the correct password it will change to the connected systems shell. It should look something similar to this:</p>
+<pre><code>ubuntu@ubuntu-minimal:~$
+</code></pre>
+<p>Now you can access the server remotely. But this is only for your network though. To make it available from anywhere you have to do some magic with your router.<br>
+To close the connection simly type exit and you should see something like this:</p>
+<pre><code>ubuntu@ubuntu-minimal:~$ exit
+logout
+Connection to 192.168.0.26 closed.
+</code></pre>
+<p><strong>SSH KEYS</strong><br>
+SSH keys provide a more secure way of logging into a virtual private server with SSH than using a password alone. While a password can eventually be cracked with a brute force attack, SSH keys are nearly impossible to decipher by brute force alone. Generating a key pair provides you with two long string of characters: a public and a private key. You can place the public key on any server, and then unlock it by connecting to it with a client that already has the private key. When the two match up, the system unlocks without the need for a password. You can increase security even more by protecting the private key with a passphrase.</p>
+<p>The first step is to create the key pair on the client machine (there is a good chance that this will just be your computer):</p>
+<pre><code>ssh-keygen -t rsa
+</code></pre>
+<p>Once you have entered the Gen Key command, you will get a few more questions:</p>
+<pre><code>Enter file in which to save the key (/home/demo/.ssh/id_rsa):
+</code></pre>
+<p>You can press enter here, saving the file to the user home (in this case, my example user is called demo).</p>
+<pre><code>Enter passphrase (empty for no passphrase):
+</code></pre>
+<p>It’s up to you whether you want to use a passphrase. Entering a passphrase does have its benefits: the security of a key, no matter how encrypted, still depends on the fact that it is not visible to anyone else. Should a passphrase-protected private key fall into an unauthorized users possession, they will be unable to log in to its associated accounts until they figure out the passphrase, buying the hacked user some extra time. The only downside, of course, to having a passphrase, is then having to type it in each time you use the Key Pair.<br>
+The entire key generation process looks like this:</p>
+<pre><code>ssh-keygen -t rsa
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/demo/.ssh/id_rsa): 
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /home/demo/.ssh/id_rsa.
+Your public key has been saved in /home/demo/.ssh/id_rsa.pub.
+The key fingerprint is:
+4a:dd:0a:c6:35:4e:3f:ed:27:38:8c:74:44:4d:93:67 demo@a
+The key's randomart image is:
++--[ RSA 2048]----+
+|          .oo.   |
+|         .  o.E  |
+|        + .  o   |
+|     . = = .     |
+|      = S = .    |
+|     o + = +     |
+|      . o + o .  |
+|           . o   |
+|                 |
++-----------------+
+</code></pre>
+<p>The public key is now located in /home/demo/.ssh/id_rsa.pub The private key (identification) is now located in /home/demo/.ssh/id_rsa</p>
+<p>Once the key pair is generated, it’s time to place the public key on the virtual server that we want to use.<br>
+You can copy the public key into the new machine’s authorized_keys file with the ssh-copy-id command. Make sure to replace the example username and IP address below.</p>
+<pre><code>ssh-copy-id user@123.45.56.78
+</code></pre>
+<p>Alternatively, you can paste in the keys using SSH:</p>
+<pre><code>cat ~/.ssh/id_rsa.pub | ssh user@123.45.56.78 &quot;mkdir -p ~/.ssh &amp;&amp; cat &gt;&gt;  ~/.ssh/authorized_keys&quot;
+</code></pre>
+<p>No matter which command you chose, you should see something like:</p>
+<pre><code>The authenticity of host '12.34.56.78 (12.34.56.78)' can't be established.
+RSA key fingerprint is b1:2d:33:67:ce:35:4d:5f:f3:a8:cd:c0:c4:48:86:12.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '12.34.56.78' (RSA) to the list of known hosts.
+user@12.34.56.78's password: 
+</code></pre>
+<p>Now try logging into the machine, with “ssh ‘user@12.34.56.78’”, and check in:</p>
+<pre><code>  ~/.ssh/authorized_keys
+</code></pre>
+<p>to make sure we haven’t added extra keys that you weren’t expecting.<br>
+Now you can go ahead and log into <a href="mailto:user@12.34.56.78">user@12.34.56.78</a> and you will not be prompted for a password. However, if you set a passphrase, you will be asked to enter the passphrase at that time (and whenever else you log in in the future).<br>
+<strong>OPTIONAL</strong><br>
+Once you have copied your SSH keys unto your server and ensured that you can log in with the SSH keys alone, you can go ahead and restrict the root login to only be permitted via SSH keys.
+In order to do this, open up the SSH config file:</p>
+<pre><code>sudo nano /etc/ssh/sshd_config
+</code></pre>
+<p>Within that file, find the line that includes PermitRootLogin and modify it to ensure that users can only connect with their SSH key:</p>
+<pre><code>PermitRootLogin without-password
+</code></pre>
+<p>Put the changes into effect:</p>
+<pre><code>service ssh restart
+</code></pre>
+<h3><a id="Database_server__Mysql_166"></a>Database server - Mysql</h3>
+<p>Becouse most of the free php based web services support mysql we chose mysql.
+To install mysql use the following commands</p>
+<pre><code>apt-get -y install mysql-server mysql-client
+</code></pre>
+<p>You will be asked to provide a password for the MySQL root user - this password is valid for the user root@localhost as well as <a href="mailto:root@server1.example.com">root@server1.example.com</a>, so we don’t have to specify a MySQL root password manually later on:</p>
+<blockquote>
+<p>New password for the MySQL “root” user: -&gt; <strong>yourrootsqlpassword</strong><br>
+Repeat password for the MySQL “root” user: -&gt; <strong>yourrootsqlpassword</strong></p>
+</blockquote>
+<p>The installer has set a MySQL root password, but there are some more settings that should be changed for a secure MySQL installation. This can be done with the mysql_secure_installation command.</p>
+<h5><a id="This_program_enables_you_to_improve_the_security_of_your_MySQL_installation_in_the_following_ways_177"></a>This program enables you to improve the security of your MySQL installation in the following ways:</h5>
+<ul>
+<li>You can set a password for root accounts.</li>
+<li>You can remove root accounts that are accessible from outside the local host.</li>
+<li>You can remove anonymous-user accounts.</li>
+<li>You can remove the test database (which by default can be accessed by all users, even anonymous users), and privileges that permit anyone to access databases with names that start with test_.</li>
+</ul>
+<h4><a id="The_command_is_interactive_and_will_look_like_the_following_182"></a>The command is interactive and will look like the following</h4>
+<pre><code>root@servername:~# mysql_secure_installation
+Securing the MySQL server deployment.
+Enter password for user root: &lt;-- Enter the MySQL root password
+VALIDATE PASSWORD PLUGIN can be used to test passwords
+and improve security. It checks the strength of password
+and allows the users to set only those passwords which are
+secure enough. Would you like to setup VALIDATE PASSWORD plugin?
+Press y|Y for Yes, any other key for No: &lt;-- Press y if you want this function or press Enter otherwise.
+Using existing password for root.
+Change the password for root ? ((Press y|Y for Yes, any other key for No) : &lt;-- Press enter
+... skipping.
+By default, a MySQL installation has an anonymous user,
+allowing anyone to log into MySQL without having to have
+a user account created for them. This is intended only for
+testing, and to make the installation go a bit smoother.
+You should remove them before moving into a production
+environment.
+Remove anonymous users? (Press y|Y for Yes, any other key for No) : &lt;-- y
+Success.
+
+Normally, root should only be allowed to connect from
+'localhost'. This ensures that someone cannot guess at
+the root password from the network.
+Disallow root login remotely? (Press y|Y for Yes, any other key for No) : &lt;-- y
+Success.
+By default, MySQL comes with a database named 'test' that
+anyone can access. This is also intended only for testing,
+and should be removed before moving into a production
+environment.
+
+Remove test database and access to it? (Press y|Y for Yes, any other key for No) : &lt;-- y
+- Dropping test database...
+Success.
+- Removing privileges on test database...
+Success.
+Reloading the privilege tables will ensure that all changes
+made so far will take effect immediately.
+Reload privilege tables now? (Press y|Y for Yes, any other key for No) : &lt;-- y
+Success.
+All done!
+</code></pre>
+<p>Thats all about MySql installation, so install lighttpd</p>
+<h3><a id="Webserver__Lighttpd_227"></a>Webserver - Lighttpd</h3>
+<p>For raspberry pi we decided to use lighttpd instead of other webservers because it is lightweight and We only used Apache so far and wanted some new experience. Lighttpd is available as an ubuntu package, so no need for adding a repository is required first.</p>
+<pre><code>apt-get -y install lighttpd
+</code></pre>
+<p>Now if we navigate our browser to <a href="http://192.168.0.12/">http://192.168.0.12/</a> (obviously the replace it with your own ip address) and we should see something like the following html page.
+<img src="http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_20_48_44_www.kepfeltoltes.hu_.png" alt="Lighttpd Default page" title="Lighttpd Default page"></p>
+<ul>
+<li>The default document root is /var/www/html on Ubuntu, and the cofiguration file is /etc/lighttpd/lighttpd.conf…</li>
+<li>Addition configurations are stored in the /etc/lighttpd/conf-available directory</li>
+<li>These addigitonal configurations can be enabled with the lgihttpd-enable-mod command which creates a symlink from the /etc/lighttpd/conf-enabled directory to the appropriate configuration file on /etc/lighttpd/conf-available.</li>
+<li>You can disable configurations with the lighttpd-disable-mod command.</li>
+<li><em>Lighttpd might cause us some issues with some configurations since the community and documentation for it is not nearly as good as the apaches’s, so in the future we might change to apache.</em></li>
+</ul>
+<h3><a id="PHP_70_239"></a>PHP 7.0</h3>
+<p>Recently David plays with the new elements of php 7.0, so we decided to install php7 instead of php 5.6
+We can make PHP work in Lighttpd through PHP-FPM which we install like this:</p>
+<pre><code>apt-get -y install php7.0-fpm php7.0
+</code></pre>
+<p>PHP-FPM is a daemon process (with the init script php5-fpm) that runs a FastCGI server on the socket <em>/var/run/php/php7.0-fpm.sock</em>.<br>
+What is php-fpm?<br>
+PHP-FPM (FastCGI Process Manager) is an alternative PHP FastCGI implementation with some additional features useful for sites of any size, especially busier sites.<br>
+These features include:</p>
+<ul>
+<li>Adaptive process spawning (NEW!)</li>
+<li>Basic statistics (ala Apache’s mod_status) (NEW!)</li>
+<li>Advanced process management with graceful stop/start</li>
+<li>Ability to start workers with different uid/gid/chroot/environment and different php.ini (replaces safe_mode)</li>
+<li>Stdout &amp; stderr logging</li>
+<li>Emergency restart in case of accidental opcode cache destruction</li>
+<li>Accelerated upload support</li>
+<li>Support for a “slowlog”</li>
+<li>Enhancements to FastCGI, such as fastcgi_finish_request() - a special function to finish request &amp; flush all data while continuing to do something time-consuming (video converting, stats processing, etc.)</li>
+<li>and much more.
+It was not designed with virtual hosting in mind (large amounts of pools) however it can be adapted for any usage model.</li>
+</ul>
+<h5><a id="Configuring_Lighttpd_and_php70_260"></a>Configuring Lighttpd and php7.0</h5>
+<ul>
+<li>To enable PHP in Lighttpd, we must modify /etc/php/7.0/fpm/php.ini and uncomment the line cgi.fix_pathinfo=1:</li>
+</ul>
+<pre><code>nano /etc/php/7.0/fpm/php.ini &lt;- Find the cgi.fix_pathinfo=1 line and uncomment it if needed. 
+</code></pre>
+<ul>
+<li>The Lighttpd configuration file for PHP /etc/lighttpd/conf-available/15-fastcgi-php.conf is suitable for use with spawn-fcgi, however, we want to use PHP-FPM, therefore we create a backup of the file (named 15-fastcgi-php.conf.bak) and modify 15-fastcgi-php.conf as follows:</li>
+</ul>
+<pre><code>cd /etc/lighttpd/conf-available/
+cp 15-fastcgi-php.conf 15-fastcgi-php.conf.bak
+nano 15-fastcgi-php.conf
+</code></pre>
+<p>This is how the file should look like.</p>
+<pre><code># /usr/share/doc/lighttpd-doc/fastcgi.txt.gz
+# http://redmine.lighttpd.net/projects/lighttpd/wiki/Docs:ConfigurationOptions#mod_fastcgi-fastcgi
+
+## Start an FastCGI server for php (needs the php7.0-cgi package)
+fastcgi.server += ( &quot;.php&quot; =&gt;
+        ((
+                &quot;socket&quot; =&gt; &quot;/var/run/php/php7.0-fpm.sock&quot;,
+                &quot;broken-scriptfilename&quot; =&gt; &quot;enable&quot;
+        ))
+)
+</code></pre>
+<ul>
+<li>To enable the fastcgi configuration, run the following commands:</li>
+</ul>
+<pre><code>lighttpd-enable-mod fastcgi
+lighttpd-enable-mod fastcgi-php
+</code></pre>
+<p><em>This creates the symlinks /etc/lighttpd/conf-enabled/10-fastcgi.conf which points to /etc/lighttpd/conf-available/10-fastcgi.conf and /etc/lighttpd/conf-enabled/15-fastcgi-php.conf which points to /etc/lighttpd/conf-available/15-fastcgi-php.conf and you should see something like this in the folder:</em></p>
+<pre><code>ls -l /etc/lighttpd/conf-enabled
+root@yourserver:/etc/lighttpd/conf-available# ls -l /etc/lighttpd/conf-enabled
+total 0
+lrwxrwxrwx 1 root root 33 Nov 6 20:32 10-fastcgi.conf -&gt; ../conf-available/10-fastcgi.conf
+lrwxrwxrwx 1 root root 37 Nov 6 20:32 15-fastcgi-php.conf -&gt; ../conf-available/15-fastcgi-php.conf
+root@yourserver:/etc/lighttpd/conf-available#
+</code></pre>
+<ul>
+<li>To reload lighttpd:</li>
+</ul>
+<pre><code>service lighttpd force-reload
+</code></pre>
+<p><em>Note: If you get locale errors then you can remove the error by using</em></p>
+<pre><code>apt-get -y install language-pack-en-base  
+dpkg-reconfigure locales
+</code></pre>
+<ul>
+<li>now we can test if the php works properly or not.</li>
+</ul>
+<pre><code>nano /var/www/html/info.php
+## the file should contain
+&lt;?php
+phpinfo(); // this function returns the all information about php installed.
+?&gt;
+</code></pre>
+<p>Now if you navigate the browser to <a href="http://192.168.0.12/info.php">http://192.168.0.12/info.php</a> you should see something like this<br>
+<img src="http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_22_09_56_www.kepfeltoltes.hu_.png" alt="PHP info" title="PHP info"><br>
+As you see, PHP 7.0 is working, and it’s working through FPM/FastCGI, as shown in the Server API line. If you scroll further down, you will see all modules that are already enabled in PHP5. MySQL is not listed there which means we don’t have MySQL support in PHP yet.<br>
+To enable MySQL support for PHP 7 we need to install a package. To search php7 packages use the following command</p>
+<pre><code>apt-cache package_name php7.0
+</code></pre>
+<p>We install some useful packages, which most php applications use. Including MySQL as well.</p>
+<pre><code>apt-get -y install php7.0-mysql php7.0-curl php7.0-gd php7.0-intl php-pear php-imagick php7.0-imap php7.0-mcrypt php-memcache  php7.0-pspell php7.0-recode php7.0-sqlite3 php7.0-tidy php7.0-xmlrpc php7.0-xsl php7.0-mbstring php-gettext
+</code></pre>
+<p>APCu is an extension for the PHP Opcache module that comes with PHP 7, it adds some compatibility features for software that supports the APC cache (e.g. Wordpress cache plugins).</p>
+<pre><code>apt-get -y install php-apcu
+</code></pre>
+<p>Now reload php-fpm</p>
+<pre><code>service php7.0-fpm reload
+</code></pre>
+<p>Now if you navigate the browser to <a href="http://192.168.0.12/info.php">http://192.168.0.12/info.php</a> you should see something like this<br>
+<img src="http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_22_10_16_www.kepfeltoltes.hu_.png" alt="PHP info | MySQL" title="PHP info | MySQL"></p>
+<h4><a id="phpMyAdmin_337"></a>phpMyAdmin</h4>
+<ul>
+<li>phpMyAdmin is a web interface through which you can manage your MySQL databases. It’s a good idea to install it</li>
+<li>You can manage your databases easily inside of phpmyadmin and write sql code as well, but mostly it is used as a GUI for mysql</li>
+<li>You can install it with the following command</li>
+</ul>
+<pre><code>apt-get -y install phpmyadmin
+</code></pre>
+<p>You will see the following questions:</p>
+<pre><code>Web server to reconfigure automatically: &lt;-- lighttpd  
+Configure database for phpmyadmin with dbconfig-common? &lt;-- Yes  
+MySQL application password for phpmyadmin: &lt;-- Press Enter  
+</code></pre>
+<p>If you get the following error:</p>
+<pre><code>Run /etc/init.d/lighttpd force-reload to enable changes  
+dpkg: error processing package phpmyadmin (--configure):  
+subprocess installed post-installation script returned error exit status 2  
+E: Sub-process /usr/bin/dpkg returned an error code (1)  
+</code></pre>
+<p>Then run these commands:</p>
+<pre><code>/etc/init.d/lighttpd force-reload
+apt-get -y install phpmyadmin
+</code></pre>
+<p>We are almost done here, just run this simple command to create a symlink in /var/www/ to the phpmyadmin folder in /usr/share/.</p>
+<pre><code>ln -s /usr/share/phpmyadmin/ /var/www/html
+</code></pre>
+<p><em>Then reload the lighttpd and php if it would still not find phpmyadmin</em><br>
+Now the phpMyAdmin should load under <a href="http://192.168.0.12/phpmyadmin">http://192.168.0.12/phpmyadmin</a><br>
+<img src="http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_22_16_55_www.kepfeltoltes.hu_.png" alt="phpMyAdmin" title="phpMyAdmin"><br>
+Now you can login with the mysql user for localhost.
+After login you should see something like:<br>
+<img src="http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_17_32_16_www.kepfeltoltes.hu_.png" alt="phpMyAdmin logged" title="phpMyAdmin logged"></p>
+<p>Now that we have php and mysql configured and runnig we could install some php framework, but first set up the fpd server to make it easier</p>
+<h3><a id="FTP_SERVER__proftpd_375"></a>FTP SERVER - proftpd</h3>
+<p>ProFTPD is a popular ftp server. Because it was written as a powerful and configurable program, it is not necessarily the lightest ftp server available for virtual servers.<br>
+You can quickly install ProFTP on your VPS in the command line:</p>
+<pre><code>apt-get -y install proftpd
+</code></pre>
+<p>While the file is installing, you will be given the choice to run your VPS as an inetd or standalone server. Choose the standalone option.<br>
+After it fisinhed the proftpd is installed, but we still need to configure it!</p>
+<p>Once ProFTPD is installed, you can make the needed adjustments in the configuration. Unlike some other FTP configurations, ProFTPD disables anonymous login from the outset and we only need to make a couple of alterations in the config file.</p>
+<p>Open up the file:</p>
+<pre><code>nano /etc/proftpd/proftpd.conf
+</code></pre>
+<p>Go ahead and make a few changes:</p>
+<ul>
+<li>Change the Server Name to your host name</li>
+</ul>
+<pre><code>ServerName                      &quot;example.com&quot;
+</code></pre>
+<ul>
+<li>Uncomment the line that says Default Root.</li>
+<li>Its value will limit the user’s access to that specific directory</li>
+<li>If we want the use to see only the home directory use ‘~’</li>
+<li>But now we want the user to access the ‘/var/www/html’ folder  to upload a php framework</li>
+</ul>
+<pre><code># Use this to jail all users in their homes
+DefaultRoot                    /var/www/html
+</code></pre>
+<ul>
+<li>To be able to create new files and directories inside the default directory we should add the following lines</li>
+</ul>
+<pre><code>&lt;Directory /var/www/html&gt;
+Umask 022 022
+AllowOverwrite on
+    &lt;Limit READ&gt;
+        DenyAll
+        &lt;/Limit&gt;
+        &lt;Limit STOR CWD MKD RMD DELE XRMD XMKD&gt;
+        AllowAll
+        &lt;/Limit&gt;
+&lt;/Directory&gt;
+</code></pre>
+<ul>
+<li>And also set the directory to be writeable. for now we will use 777</li>
+</ul>
+<pre><code>chmod -R 777 /var/www/html/
+</code></pre>
+<ul>
+<li>Once you have finished those adjustments, you can save and exit.</li>
+<li>Restart after you have made all of your changes:</li>
+</ul>
+<pre><code>sudo service proftpd restart
+</code></pre>
+<p>Once you have installed the FTP server and configured it to your liking, you can now access it.</p>
+<p><em>NOTE: If proftpd would not start with the system by default use this command:</em>
+<code>update-rc.d proftpd defaults</code><br>
+You can reach an FTP server in the browser by typing the domain name into the address bar and logging in with the appropriate ID. Keep in mind, you will only be able to access the user’s home directory when connecting to the virtual server.</p>
+<pre><code>ftp://example.com
+</code></pre>
+<p>Alternatively, you can reach the FTP server through the command line by typing:</p>
+<pre><code>ftp example.com
+</code></pre>
+<p>Then you can use the word, “exit,” to get out of the FTP shell.</p>
+<p>Now if we open an ftp client like filezilla we are able to connect to the ftp server and mangage our site.</p>
+<p>To download filezilla use the following command:</p>
+<pre><code>apt-get install filezilla
+</code></pre>
+<p>Then run it and fill in the host,username,password,port with the server’s host,username,password and port. Then quickconnect.<br>
+<img src="http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_18_31_15_www.kepfeltoltes.hu_.png" alt="proftpd" title="proftpd"></p>
+<p>On the left side it’s already navigated to the Downloads folder and there is an unzipped Codeigniter sourcecode. Copy content of that folder to the server.</p>
+<p>After you have copied all the files you should see the following when you navigate your browser to <a href="http://192.168.0.26/">http://192.168.0.26/</a><br>
+<img src="http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_18_49_28_www.kepfeltoltes.hu_.png" alt="codeigniter" title="codeigniter"></p>
+<p>NOTE: Since we are using lighttpd most php webservices might not work properly due to the .htaccess file, which is for apache and not for lighttpd. Fortunately  <a href="https://redmine.lighttpd.net/projects/1/wiki/MigratingFromApache">here</a> is a tutorial about migrating from apache to lighty.</p>
+<h3><a id="DNS_server__BIND_455"></a>DNS server - BIND</h3>
+<h3><a id="Mailing_server__PostFix_456"></a>Mailing server - PostFix</h3>
+<h3><a id="Web_Hosting_Control_Panel__ISPConfig_457"></a>Web Hosting Control Panel - ISPConfig</h3>
+<h3><a id="Monitoring__Munin_458"></a>Monitoring - Munin</h3>
+
+</body></html>
