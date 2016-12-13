@@ -1002,8 +1002,8 @@ sudo vim /etc/cron.d/awstats
 #### Install Jailkit
 
 Jailkit is needed only if you want to chroot SSH users. It can be installed as follows (important: Jailkit must be installed before ISPConfig - it cannot be installed afterwards!):
-apt-get install build-essential autoconf automake1.9 libtool flex bison debhelper binutils-gold
 ```
+sudo apt-get install build-essential autoconf automake1.9 libtool flex bison debhelper binutils-gold
 cd /tmp
 wget http://olivier.sessink.nl/jailkit/jailkit-2.15.tar.gz
 tar xvfz jailkit-2.15.tar.gz
@@ -1017,6 +1017,210 @@ sudo dpkg -i jailkit_2.15-1_*.deb
 sudo rm -rf jailkit-2.15*
 ```
 
+Thats it. Now jailkit is installed. Jailkit makes many commands available which can be used to setup chroot based jailed environments. Here are the commands
+```
+jk_addjailuser   jk_chrootlaunch  jk_cp            jk_jailuser      jk_lsh           jk_uchroot       
+jk_check         jk_chrootsh      jk_init          jk_list          jk_socketd       jk_update
+```
+
+### fail2ban
+This is optional but recommended, because the ISPConfig monitor tries to show the log:
+```
+sudo apt-get install fail2ban
+```
+To make fail2ban monitor PureFTPd and Dovecot, create the file /etc/fail2ban/jail.local:
+```
+sudo vim /etc/fail2ban/jail.local
+```
+```
+[proftpd]
+enabled  = true
+port     = ftp
+filter   = proftpd
+logpath  = /var/log/syslog
+maxretry = 3
+```
+```
+[dovecot-pop3imap]
+enabled = true
+filter = dovecot-pop3imap
+action = iptables-multiport[name=dovecot-pop3imap, port="pop3,pop3s,imap,imaps", protocol=tcp]
+logpath = /var/log/mail.log
+maxretry = 5
+```
+```
+[postfix-sasl]
+enabled  = true
+port     = smtp
+filter   = postfix-sasl
+logpath  = /var/log/mail.log
+maxretry = 3
+```
+Then create the following two filter files:
+```
+sudo vim /etc/fail2ban/filter.d/dovecot-pop3imap.conf
+```
+```
+[Definition]
+failregex = (?: pop3-login|imap-login): .*(?:Authentication failure|Aborted login \(auth failed|Aborted login \(tried to use disabled|Disconnected \(auth failed|Aborted login \(\d+ authentication attempts).*rip=(?P<host>\S*),.*
+ignoreregex =
+```
+Add the missing ignoreregex line in the postfix-sasl file:
+```
+echo "ignoreregex =" >> sudo /etc/fail2ban/filter.d/postfix-sasl.conf
+```
+Restart fail2ban afterwards:
+```
+sudo service fail2ban restart
+```
+
+### Install SquirrelMail
+
+To install the SquirrelMail webmail client, run
+```
+apt-get install squirrelmail
+```
+Then configure SquirrelMail:
+```
+squirrelmail-configure
+```
+We must tell SquirrelMail that we are using Dovecot-IMAP/-POP3:
+```
+SquirrelMail Configuration : Read: config.php (1.4.0)
+---------------------------------------------------------
+Main Menu --
+1.  Organization Preferences
+2.  Server Settings
+3.  Folder Defaults
+4.  General Options
+5.  Themes
+6.  Address Books
+7.  Message of the Day (MOTD)
+8.  Plugins
+9.  Database
+10. Languages
+
+D.  Set pre-defined settings for specific IMAP servers
+
+C   Turn color on
+S   Save data
+Q   Quit
+
+Command >> <-- D
+
+
+SquirrelMail Configuration : Read: config.php
+---------------------------------------------------------
+While we have been building SquirrelMail, we have discovered some
+preferences that work better with some servers that don't work so
+well with others.  If you select your IMAP server, this option will
+set some pre-defined settings for that server.
+
+Please note that you will still need to go through and make sure
+everything is correct.  This does not change everything.  There are
+only a few settings that this will change.
+
+Please select your IMAP server:
+    bincimap    = Binc IMAP server
+    courier     = Courier IMAP server
+    cyrus       = Cyrus IMAP server
+    dovecot     = Dovecot Secure IMAP server
+    exchange    = Microsoft Exchange IMAP server
+    hmailserver = hMailServer
+    macosx      = Mac OS X Mailserver
+    mercury32   = Mercury/32
+    uw          = University of Washington's IMAP server
+    gmail       = IMAP access to Google mail (Gmail) accounts
+
+    quit        = Do not change anything
+Command >> <-- dovecot
+
+
+SquirrelMail Configuration : Read: config.php
+---------------------------------------------------------
+While we have been building SquirrelMail, we have discovered some
+preferences that work better with some servers that don't work so
+well with others.  If you select your IMAP server, this option will
+set some pre-defined settings for that server.
+
+Please note that you will still need to go through and make sure
+everything is correct.  This does not change everything.  There are
+only a few settings that this will change.
+
+Please select your IMAP server:
+    bincimap    = Binc IMAP server
+    courier     = Courier IMAP server
+    cyrus       = Cyrus IMAP server
+    dovecot     = Dovecot Secure IMAP server
+    exchange    = Microsoft Exchange IMAP server
+    hmailserver = hMailServer
+    macosx      = Mac OS X Mailserver
+    mercury32   = Mercury/32
+    uw          = University of Washington's IMAP server
+    gmail       = IMAP access to Google mail (Gmail) accounts
+
+    quit        = Do not change anything
+Command >> dovecot
+
+              imap_server_type = dovecot
+         default_folder_prefix = <none>
+                  trash_folder = Trash
+                   sent_folder = Sent
+                  draft_folder = Drafts
+            show_prefix_option = false
+          default_sub_of_inbox = false
+show_contain_subfolders_option = false
+            optional_delimiter = detect
+                 delete_folder = false
+
+Press enter to continue... <-- ENTER
+
+
+SquirrelMail Configuration : Read: config.php (1.4.0)
+---------------------------------------------------------
+Main Menu --
+1.  Organization Preferences
+2.  Server Settings
+3.  Folder Defaults
+4.  General Options
+5.  Themes
+6.  Address Books
+7.  Message of the Day (MOTD)
+8.  Plugins
+9.  Database
+10. Languages
+
+D.  Set pre-defined settings for specific IMAP servers
+
+C   Turn color on
+S   Save data
+Q   Quit
+
+Command >> <-- S
+
+
+SquirrelMail Configuration : Read: config.php (1.4.0)
+---------------------------------------------------------
+Main Menu --
+1.  Organization Preferences
+2.  Server Settings
+3.  Folder Defaults
+4.  General Options
+5.  Themes
+6.  Address Books
+7.  Message of the Day (MOTD)
+8.  Plugins
+9.  Database
+10. Languages
+
+D.  Set pre-defined settings for specific IMAP servers
+
+C   Turn color on
+S   Save data
+Q   Quit
+
+Command >> <-- Q
+```
 
 
 
