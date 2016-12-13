@@ -249,8 +249,6 @@ Reload privilege tables now? (Press y|Y for Yes, any other key for No) : <-- y
 Success.
 All done!
 ```
-
-
 #### Install Nginx
 
 In case that you have installed Apache2 already, then remove it first with these commands & then install nginx:
@@ -509,7 +507,52 @@ Now you can login with the mysql user for localhost.
 After login you should see something like:  
  ![phpMyAdmin logged](http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_17_32_16_www.kepfeltoltes.hu_.png "phpMyAdmin logged")  
 
-Now that we have php and mysql configured and runnig we could install some php framework, but first set up the fpd server to make it easier 
+Now that we have php and mysql configured and runnig we could install some php framework, but first set up the fpd server to make it easier
+
+*__(Optional:) Enable Configuration Storage__*
+By default, some of extra options such as change tracking, table linking, and bookmarking queries are disabled.
+You need to enable it you should do following:
+Open config.inc.php with text editor.
+```
+sudo vim /usr/share/phpmyadmin/config.inc.php
+```
+Locate following lines:
+```
+// $cfg['Servers'][$i]['controluser'] = 'pma';
+// $cfg['Servers'][$i]['controlpass'] = 'pmapass';
+```
+Uncomment it by removing // and set some username and password instead of pma (username) and pmapass (password). These are only placeholders.
+
+Also be sure to uncomment following lines under Storage database and tables by removing //.
+```
+// $cfg['Servers'][$i]['pmadb'] = 'phpmyadmin';
+// $cfg['Servers'][$i]['bookmarktable'] = 'pma__bookmark';
+// $cfg['Servers'][$i]['relation'] = 'pma__relation';
+// $cfg['Servers'][$i]['table_info'] = 'pma__table_info';
+// $cfg['Servers'][$i]['table_coords'] = 'pma__table_coords';
+// $cfg['Servers'][$i]['pdf_pages'] = 'pma__pdf_pages';
+// $cfg['Servers'][$i]['column_info'] = 'pma__column_info';
+// $cfg['Servers'][$i]['history'] = 'pma__history';
+// $cfg['Servers'][$i]['table_uiprefs'] = 'pma__table_uiprefs';
+// $cfg['Servers'][$i]['tracking'] = 'pma__tracking';
+// $cfg['Servers'][$i]['userconfig'] = 'pma__userconfig';
+// $cfg['Servers'][$i]['recent'] = 'pma__recent';
+// $cfg['Servers'][$i]['favorite'] = 'pma__favorite';
+// $cfg['Servers'][$i]['users'] = 'pma__users';
+// $cfg['Servers'][$i]['usergroups'] = 'pma__usergroups';
+// $cfg['Servers'][$i]['navigationhiding'] = 'pma__navigationhiding';
+// $cfg['Servers'][$i]['savedsearches'] = 'pma__savedsearches';
+// $cfg['Servers'][$i]['central_columns'] = 'pma__central_columns';
+// $cfg['Servers'][$i]['designer_settings'] = 'pma__designer_settings';
+// $cfg['Servers'][$i]['export_templates'] = 'pma__export_templates';
+```
+Now you need to create user for it. Go again to phpmyadmin and go to SQL.
+Execute following query:
+```
+GRANT SELECT, INSERT, UPDATE, DELETE ON phpmyadmin.* TO 'pma'@'localhost' IDENTIFIED BY 'pmapass';
+```
+This will create in same time create MySQL user and Grant needed privileges.
+
 ### FTP SERVER - proftpd
 ProFTPD is a popular ftp server. Because it was written as a powerful and configurable program, it is not necessarily the lightest ftp server available for virtual servers.  
 You can quickly install ProFTP on your VPS in the command line:  
@@ -590,6 +633,43 @@ After you have copied all the files you should see the following when you naviga
 
 NOTE: Since we are using lighttpd most php webservices might not work properly due to the .htaccess file, which is for apache and not for lighttpd. Fortunately  [here](https://redmine.lighttpd.net/projects/1/wiki/MigratingFromApache) is a tutorial about migrating from apache to lighty. 
 
+### Install Amavisd-new, SpamAssassin, And Clamav
+To install amavisd-new, SpamAssassin, and ClamAV, we run
+```
+sudo apt-get install amavisd-new spamassassin clamav clamav-daemon zoo unzip bzip2 arj nomarch lzop cabextract apt-listchanges libnet-ldap-perl libauthen-sasl-perl clamav-docs daemon libio-string-perl libio-socket-ssl-perl libnet-ident-perl zip libnet-dns-perl
+```
+The ISPConfig 3 setup uses amavisd which loads the SpamAssassin filter library internally, so we can stop SpamAssassin to free up some RAM:
+```
+sudo service spamassassin stop
+sudo update-rc.d -f spamassassin remove
+```
+
+
+
+#### IF the following error occured
+```
+...
+dpkg: error processing package amavisd-new (--configure):
+ subprocess installed post-installation script returned error exit status 1
+Errors were encountered while processing:
+ amavisd-new
+E: Sub-process /usr/bin/dpkg returned an error code (1)
+```
+This case you have problems with amavisd. Apparently this is a [bug](https://bugs.launchpad.net/ubuntu/+source/amavisd-new/+bug/1587695) . 
+```
+sudo vim /etc/amavis/conf.d/05-node_id 
+```
+Locate the line $myhostname and write a fqdn there.
+After restarting the amavis it should work
+```
+sudo /etc/init.d/amavis restart
+```
+
+Runnin the following command  
+```
+systemctl status amavis.service
+```
+If the status is : active(running) the it is ok. Otherwise you need to debug it. 
 ### Mailing server - PostFix
 Postfix is included in Ubuntu's default repositories, so installation is incredibly simple.
 
