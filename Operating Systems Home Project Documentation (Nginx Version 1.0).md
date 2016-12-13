@@ -1078,11 +1078,11 @@ sudo service fail2ban restart
 
 To install the SquirrelMail webmail client, run
 ```
-apt-get install squirrelmail
+sudo apt-get install squirrelmail
 ```
 Then configure SquirrelMail:
 ```
-squirrelmail-configure
+sudo squirrelmail-configure
 ```
 We must tell SquirrelMail that we are using Dovecot-IMAP/-POP3:
 ```
@@ -1221,6 +1221,347 @@ Q   Quit
 
 Command >> <-- Q
 ```
+You can now find SquirrelMail in the /usr/share/squirrelmail/ directory.
+
+After you have installed ISPConfig 3, you can access SquirrelMail as follows:
+The ISPConfig apps vhost on port 8081 for nginx comes with a SquirrelMail configuration, so you can use *http://server1.example.com:8081/squirrelmail* or *http://server1.example.com:8081/webmail* to access SquirrelMail.
+
+If you want to use a /webmail or /squirrelmail alias that you can use from your web sites, this is a bit more complicated than for Apache because nginx does not have global aliases (i.e., aliases that can be defined for all vhosts). Therefore you have to define these aliases for each vhost from which you want to access SquirrelMail.
+
+To do this, paste the following into the nginx Directives field on the Options tab of the web site in ISPConfig:
+```
+        location /squirrelmail {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/squirrelmail/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/squirrelmail/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /webmail {
+               rewrite ^/* /squirrelmail last;
+        }
+```
+If you use https instead of http for your vhost, you should add the line fastcgi_param HTTPS on; to your SquirrelMail configuration like this:
+```
+        location /squirrelmail {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/squirrelmail/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_param HTTPS on; # <-- add this line
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/squirrelmail/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /webmail {
+               rewrite ^/* /squirrelmail last;
+        }
+```
+If you use both http and https for your vhost, you need to add the following section to the http {} section in /etc/nginx/nginx.conf (before any include lines) which determines if the visitor uses http or https and sets the $fastcgi_https variable (which we will use in our SquirrelMail configuration) accordingly:
+```
+sudo vim /etc/nginx/nginx.conf
+```
+```
+[...]
+http {
+[...]
+        ## Detect when HTTPS is used
+        map $scheme $fastcgi_https {
+          default off;
+          https on;
+
+        }
+[...]
+}
+[...]
+```
+Don't forget to reload nginx afterwards:
+```
+sudo service nginx reload
+```
+Then go to the nginx Directives field again, and instead of fastcgi_param HTTPS on; you add the line fastcgi_param HTTPS $fastcgi_https; so that you can use SquirrelMail for both http and https requests:
+```
+        location /squirrelmail {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/squirrelmail/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_param HTTPS $fastcgi_https; # <-- add this line
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/squirrelmail/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /webmail {
+               rewrite ^/* /squirrelmail last;
+        }
+```
+
+### ISPConfig 3
+
+Before you start the ISPConfig installation, make sure that Apache is stopped (if it is installed - it is possible that some of your installed packages have installed Apache as a dependency without you knowing). If Apache2 is already installed on the system, stop it now...
+```
+sudo service apache2 stop
+```
+... and remove Apache's system startup links:
+```
+sudo update-rc.d -f apache2 remove
+```
+Make sure that nginx is running:
+```
+sudo service nginx restart
+```
+(If you have both Apache and nginx installed, the installer asks you which one you want to use: Apache and nginx detected. Select server to use for ISPConfig: (apache,nginx) [apache]:
+Type nginx. If only Apache or nginx are installed, this is automatically detected by the installer, and no question is asked.)
+To install ISPConfig 3 from the latest released version, do this:
+```
+cd /tmp
+wget http://www.ispconfig.org/downloads/ISPConfig-3-stable.tar.gz
+tar xfz ISPConfig-3-stable.tar.gz
+cd ispconfig3_install/install/
+```
+
+The next step is to run
+```
+sudo php -q install.php
+```
+This will start the ISPConfig 3 installer. The installer will configure all services like Postfix, SASL, Courier, etc. for you. A manual setup as required for ISPConfig 2 (perfect setup guides) is not necessary.
+
+*__NOTE:__*
+If you get an error like
+```
+Wrong SQL-mode. You should use NO_ENGINE_SUBSTITUTION. Add
+
+    sql-mode="NO_ENGINE_SUBSTITUTION"
+
+to the mysqld-section in your mysql-config and restart mysqld afterwards
+```
+The sql-mode should only contain "NO_ENGINE_SUBSTITUTION" NOTHING ELSE. So lets make it happen:
+```
+sudo vim /etc/mysql/mysql.conf.d/mysqld.cnf 
+```
+At the end of the file add 
+```
+...
+sql-mode="NO_ENGINE_SUBSTITUTION"
+```
+Then.
+```
+sudo service mysql restart
+```
+Now you can continue the install!
+
+```
+root@server1:/tmp/ispconfig3_install/install# php -q install.php
+PHP Deprecated:  Comments starting with '#' are deprecated in /etc/php5/cli/conf.d/ming.ini on line 1 in Unknown on line 0
+
+
+--------------------------------------------------------------------------------
+ _____ ___________   _____              __ _         ____
+|_   _/  ___| ___ \ /  __ \            / _(_)       /__  \
+  | | \ `--.| |_/ / | /  \/ ___  _ __ | |_ _  __ _    _/ /
+  | |  `--. \  __/  | |    / _ \| '_ \|  _| |/ _` |  |_ |
+ _| |_/\__/ / |     | \__/\ (_) | | | | | | | (_| | ___\ \
+ \___/\____/\_|      \____/\___/|_| |_|_| |_|\__, | \____/
+                                              __/ |
+                                             |___/
+--------------------------------------------------------------------------------
+
+
+>> Initial configuration
+
+Operating System: 14.04 UNKNOWN
+
+    Following will be a few questions for primary configuration so be careful.
+    Default values are in [brackets] and can be accepted with <ENTER>.
+    Tap in "quit" (without the quotes) to stop the installer.
+
+
+Select language (en,de) [en]: <-- ENTER
+
+Installation mode (standard,expert) [standard]: <-- ENTER
+
+Full qualified hostname (FQDN) of the server, eg server1.domain.tld  [server1.example.com]: <-- ENTER
+
+MySQL server hostname [localhost]: <-- ENTER
+
+MySQL root username [root]: <-- ENTER
+
+MySQL root password []: <-- yourrootsqlpassword
+
+MySQL database to create [dbispconfig]: <-- ENTER
+
+MySQL charset [utf8]: <-- ENTER
+
+Apache and nginx detected. Select server to use for ISPConfig: (apache,nginx) [apache]: <-- nginx
+
+Generating a 4096 bit RSA private key
+.................................................................................................................................................................................................................................................................................................................................................................................................................................................................++
+............................................++
+writing new private key to 'smtpd.key'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]: <-- ENTER
+State or Province Name (full name) [Some-State]: <-- ENTER
+Locality Name (eg, city) []: <-- ENTER
+Organization Name (eg, company) [Internet Widgits Pty Ltd]: <-- ENTER
+Organizational Unit Name (eg, section) []: <-- ENTER
+Common Name (e.g. server FQDN or YOUR name) []: <-- ENTER
+Email Address []: <-- ENTER
+Configuring Jailkit
+Configuring Dovecot
+Configuring Spamassassin
+Configuring Amavisd
+Configuring Getmail
+Configuring Pureftpd
+Configuring BIND
+Configuring nginx
+Configuring Vlogger
+Configuring Apps vhost
+Configuring Bastille Firewall
+Configuring Fail2ban
+Installing ISPConfig
+ISPConfig Port [8080]: <-- ENTER
+
+Do you want a secure (SSL) connection to the ISPConfig web interface (y,n) [y]: <-- ENTER
+
+Generating RSA private key, 4096 bit long modulus
+...++
+.................................................................................................++
+e is 65537 (0x10001)
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]: <-- ENTER
+State or Province Name (full name) [Some-State]: <-- ENTER
+Locality Name (eg, city) []: <-- ENTER
+Organization Name (eg, company) [Internet Widgits Pty Ltd]: <-- ENTER
+Organizational Unit Name (eg, section) []: <-- ENTER
+Common Name (e.g. server FQDN or YOUR name) []: <-- ENTER
+Email Address []: <-- ENTER
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []: <-- ENTER
+An optional company name []: <-- ENTER
+writing RSA key
+Configuring DBServer
+Installing ISPConfig crontab
+no crontab for root
+no crontab for getmail
+Restarting services ...
+Rather than invoking init scripts through /etc/init.d, use the service(8)
+utility, e.g. service mysql restart
+
+Since the script you are attempting to invoke has been converted to an
+Upstart job, you may also use the stop(8) and then start(8) utilities,
+e.g. stop mysql ; start mysql. The restart(8) utility is also available.
+mysql stop/waiting
+mysql start/running, process 2783
+ * Stopping Postfix Mail Transport Agent postfix
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+   ...done.
+ * Starting Postfix Mail Transport Agent postfix
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+/usr/sbin/postconf: warning: /etc/postfix/main.cf: undefined parameter: virtual_mailbox_limit_maps
+   ...done.
+Stopping amavisd: amavisd-new.
+Starting amavisd: amavisd-new.
+ * Stopping ClamAV daemon clamd
+   ...done.
+ * Starting ClamAV daemon clamd
+   ...done.
+Rather than invoking init scripts through /etc/init.d, use the service(8)
+utility, e.g. service dovecot restart
+
+Since the script you are attempting to invoke has been converted to an
+Upstart job, you may also use the stop(8) and then start(8) utilities,
+e.g. stop dovecot ; start dovecot. The restart(8) utility is also available.
+dovecot stop/waiting
+dovecot start/running, process 3929
+ * Reloading PHP5 FastCGI Process Manager php5-fpm
+   ...done.
+ * Reloading nginx configuration nginx
+   ...done.
+Restarting ftp server: Running: /usr/sbin/pure-ftpd-mysql-virtualchroot -l mysql:/etc/pure-ftpd/db/mysql.conf -l pam -A -b -u 1000 -D -H -Y 1 -E -8 UTF-8 -O clf:/var/log/pure-ftpd/transfer.log -B
+Installation completed.
+root@server1:/tmp/ispconfig3_install/install#
+```
+
+The installer automatically configures all underlying services, so no manual configuration is needed.
+
+You now also have the possibility to let the installer create an SSL vhost for the ISPConfig control panel, so that ISPConfig can be accessed using *https://* instead of *http://*. To achieve this, just press ENTER when you see this question: Do you want a secure (SSL) connection to the ISPConfig web interface (y,n) [y]:.
+
+Afterwards you can access ISPConfig 3 under *http(s)://server1.example.com:8080/* or *http(s)://192.168.0.100:8080/* ( http or https depends on what you chose during installation). Log in with the username admin and the password admin (you should change the default password after your first login):
+
+
 
 
 
