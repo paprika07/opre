@@ -16,15 +16,20 @@ To swich to insert mode you have some options:
  +  `O:` Begin a new line above the current and insert.
  +  `gI:` Insert at column 1 of the line.
  +  `gi:` Insert where insert mode was last stopped.
+
 ### Normal MODE:
+
 In Normal Mode you have tons of options. Here I will list the most used ones. You can combo these commands like : :wg
+
 #### BASICS
  + `:e` filename	Open filename for edition
  +  `:w`	Save file
  +  `:q`	Exit Vim
  +  `:w!`	Write file and quit
+
 #### Moving through the text
-Moving through the text is usually possible with the arrow keys. If not, try:
+
+Moving through the text is usually possible with the arrow keys. If not, try: 
 + `h`to move the cursor to the left
 + `l` to move it to the right
 + `k` to move up
