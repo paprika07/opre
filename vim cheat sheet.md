@@ -27,8 +27,6 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
  +  `:q`	Exit Vim
  +  `:w!`	Write file and quit
 
-#### Moving through the text
-
 Moving through the text is usually possible with the arrow keys. If not, try: 
 + `h`to move the cursor to the left
 + `l` to move it to the right
