@@ -23,6 +23,13 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
  +  `:w`	Save file
  +  `:q`	Exit Vim
  +  `:w!`	Write file and quit
+#### Moving through the text
+Moving through the text is usually possible with the arrow keys. If not, try:
++ `h`to move the cursor to the left
++ `l` to move it to the right
++ `k` to move up
++ `j` to move down
+
 #### SEARCH
 +  `/word`	Search word from top to bottom
 +  `?word`	Search word from bottom to top
@@ -36,7 +43,9 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 +  `/\<\d\d\d\d\>`	Search exactly 4 digits
 +  `/^\n\{3}`	Find 3 empty lines
 +  `:bufdo /searchstr/`	Search in all open files
+
 #### REPLACE
+
 + `:%s/old/new/g`	Replace all occurences of old by new in file
 + `:%s/old/new/gw`	Replace all occurences with confirmation
 + `:2,35s/old/new/g`	Replace all occurences between lines 2 and 35
@@ -57,7 +66,9 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 + `Ctrl+a`	Increment number under the cursor
 + `Ctrl+x`	Decrement number under cursor
 + `ggVGg?`	Change text to Rot13
+
 #### CASE
+
 + `Vu`	Lowercase line
 + `VU`	Uppercase line
 + `g~~`	Invert case
@@ -70,12 +81,16 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 + `:%s/\<./\l&/g`	Sets first letter of each word to lowercase
 + `:%s/.*/\u&`	Sets first letter of each line to uppercase
 + `:%s/.*/\l&`	Sets first letter of each line to lowercase
+
 #### READ/WRITE FILES
+
 + `:1,10 w outfile`	Saves lines 1 to 10 in outfile
 + `:1,10 w >> outfile`	Appends lines 1 to 10 to outfile
 + `:r infile`	Insert the content of infile
 + `:23r infile`	Insert the content of infile under line 23
+
 #### FILE EXPLORER
+
 + `:e` .	Open integrated file explorer
 + `:Sex`	Split window and open integrated file explorer
 + `:browse e`	Graphical file explorer
@@ -85,16 +100,22 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 + `:args *.php`	Open file list
 + `:grep expression *.php`	Returns a list of .php files contening expression
 + `gf`	Open file name under cursor
+
 #### INTERACT WITH UNIX
+
 + `:!pwd`	Execute the pwd unix command, then returns to Vi
 + `!!pwd`	Execute the pwd unix command and insert output in file
 + `:sh`	Temporary returns to Unix
 + `$exit`	Retourns to Vi
+
 #### ALIGNMENT
+
 + `:%!fmt`	Align all lines
 + `!}fmt`	Align all lines at the current position
 + `5!!fmt`	Align the next 5 lines
+
 #### TABS
+
 + `:tabnew`	Creates a new tab
 + `gt`	Show next tab
 + `:tabfirst`	Show first tab
@@ -102,7 +123,9 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 + `:tabm n(position)`	Rearrange tabs
 + `:tabdo %s/foo/bar/g`	Execute a command in all tabs
 + `:tab ball`	Puts all open files in tabs
+
 #### WINDOW SPLITING
+
 + `:e filename`	Edit filename in current window
 + `:split filename`	Split the window and open filename
 + `ctrl-w up arrow`	Puts cursor in top window
@@ -115,21 +138,29 @@ In Normal Mode you have tons of options. Here I will list the most used ones. Yo
 + `:hide`	Close current window
 + `:nly`	Close all windows, excepted current
 + `:b 2`	Open #2 in this window
+
 #### AUTO-COMPLETION
+
 + `Ctrl+n Ctrl+p` (in insert mode)	Complete word
 + `Ctrl+x Ctrl+l`	Complete line
 + `:set dictionary=dict`	Define dict as a dictionnary
 + `Ctrl+x Ctrl+k`	Complete with dictionnary
+
 #### ABBREVIATIONS
+
 + `:ab mail mail@provider.org`	Define mail as abbreviation of mail@provider.org
+
 #### TEXT INDENT
+
 + `:set autoindent`	Turn on auto-indent
 + `:set smartindent`	Turn on intelligent auto-indent
 + `:set shiftwidth=4`	Defines 4 spaces as indent size
 + `ctrl-t, ctrl-d`	Indent/un-indent in insert mode
 + `>>`	Indent
 + `<<`	Un-indent
+
 #### SYNTAX HIGHLIGHTING
+
 + `:syntax on`	Turn on syntax highlighting
 + `:syntax off`	Turn off syntax highlighting
 + `:set syntax=perl`	Force syntax highlighting
