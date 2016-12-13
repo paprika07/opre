@@ -279,7 +279,21 @@ We can make PHP work in nginx through PHP-FPM (PHP-FPM (FastCGI Process Manager)
 ```
 sudo apt-get -y install php7.0-fpm
 ```
-PHP-FPM is a daemon process (with the init script php7.0-fpm) that runs a FastCGI server on the socket /run/php/php7.0-fpm.sock.
+PHP-FPM is a daemon process (with the init script php5-fpm) that runs a FastCGI server on the socket _/var/run/php/php7.0-fpm.sock_.  
+What is php-fpm?   
+PHP-FPM (FastCGI Process Manager) is an alternative PHP FastCGI implementation with some additional features useful for sites of any size, especially busier sites.  
+These features include:
+ - Adaptive process spawning (NEW!)
+ - Basic statistics (ala Apache's mod_status) (NEW!)
+ - Advanced process management with graceful stop/start
+ - Ability to start workers with different uid/gid/chroot/environment and different php.ini (replaces safe_mode)
+ - Stdout & stderr logging
+ - Emergency restart in case of accidental opcode cache destruction
+ - Accelerated upload support
+ - Support for a "slowlog"
+ - Enhancements to FastCGI, such as fastcgi_finish_request() - a special function to finish request & flush all data while continuing to do something time-consuming (video converting, stats processing, etc.)
+ - and much more.
+It was not designed with virtual hosting in mind (large amounts of pools) however it can be adapted for any usage model.
 
 #### Configure the PHP Processor
 We now have our PHP components installed, but we need to make a slight configuration change to make our setup more secure.
@@ -411,24 +425,381 @@ For now, remove the file by typing:
 sudo rm /var/www/html/info.php
 ```
 
+As you see, PHP 7.0 is working, and it's working through FPM/FastCGI, as shown in the Server API line. If you scroll further down, you will see all modules that are already enabled in PHP5. MySQL is not listed there which means we don't have MySQL support in PHP yet.  
 
 #### MySQL Support In PHP 7
 
-To get MySQL support in PHP, we can install the php7.0-mysql package. It's a good idea to install some other PHP modules as well as you might need them for your applications. You can search for available PHP modules like this:
-apt-cache search php7.0
-
-Pick the ones you need and install them like this:
-apt-get -y install php7.0-mysql php7.0-curl php7.0-gd php7.0-intl php-pear php-imagick php7.0-imap php7.0-mcrypt php-memcache  php7.0-pspell php7.0-recode php7.0-sqlite3 php7.0-tidy php7.0-xmlrpc php7.0-xsl php7.0-mbstring php-gettext
-
+To enable MySQL support for PHP 7 we need to install a package. To search php7 packages use the following command
+```
+sudo apt-cache package_name php7.0
+```
+We install some useful packages, which most php applications use. Including MySQL as well.
+```
+sudo apt-get -y install php7.0-mysql php7.0-curl php7.0-gd php7.0-intl php-pear php-imagick php7.0-imap php7.0-mcrypt php-memcache  php7.0-pspell php7.0-recode php7.0-sqlite3 php7.0-tidy php7.0-xmlrpc php7.0-xsl php7.0-mbstring php-gettext
+```
 APCu is an extension for the PHP Opcache module that comes with PHP 7, it adds some compatibility features for software that supports the APC cache (e.g. Wordpress cache plugins).
-APCu can be installed as follows:
-apt-get -y install php-apcu
+ ```
+ sudo apt-get -y install php-apcu
+ ```
+Now reload php-fpm
+ ```
+ sudo service php7.0-fpm reload
+ ```
+Now if you navigate the browser to http://192.168.0.12/info.php you should see something like this  
+![PHP info | MySQL](http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_22_10_16_www.kepfeltoltes.hu_.png "PHP info | MySQL")  
 
-Now reload PHP-FPM:
-service php7.0-fpm reload
 
-Now reload http://192.168.1.100/info.php in your browser and scroll down to the modules section again. You should now find lots of new modules there, including the MySQL module:
+#### phpMyAdmin
+ - phpMyAdmin is a web interface through which you can manage your MySQL databases. It's a good idea to install it
+ - You can manage your databases easily inside of phpmyadmin and write sql code as well, but mostly it is used as a GUI for mysql
+ - You can install it with the following command
 
+Phpmyadmin does support PHP 7 and Mysql 5.7.
+I recommend you to grab latest release from their [download page](https://www.phpmyadmin.net/downloads/).
+Current download link is:
+https://files.phpmyadmin.net/phpMyAdmin/4.6.5.2/phpMyAdmin-4.6.5.2-all-languages.tar.gz
+__How to install:__
+
+Download PhpMyAdmin. You can do it using wget from your droplet.
+ ```
+wget https://files.phpmyadmin.net/phpMyAdmin/4.6.5.2/phpMyAdmin-4.6.5.2-all-languages.tar.gz
+ ```
+You will need to unpack it by using tar command:
+```
+tar xvf phpMyAdmin-4.6.5.2-all-languages.tar.gz
+```
+As you finished it, rename it to phpmydmin and move to /usr/share/.
+```
+sudo mv phpMyAdmin-4.6.5.2-all-languages /usr/share/phpmyadmin
+```
+You installed phpmyadmin in /usr/share/phpmyadmin. Now it needs to be configured.
+
+First install needed PHP dependencies - mcrypt and mbstring.
+```
+sudo apt-get install php7.0-mcrypt php-mbstring php7.0-mbstring php-gettext
+```
+This command will install it on your droplet, but keep in mind, only install, you need to enable it afterwards. To enable it execute following commands:
+```
+sudo phpenmod mcrypt
+sudo phpenmod mbstring
+```
+Now restart PHP-FPM to make changes in effect.
+```
+sudo systemctl restart php7.0-fpm
+```
+As for nginx, making symbolic link from phpmyadmin to /var/www/html will finish it's job making available to nginx.
+```
+sudo ln -s /usr/share/phpmyadmin /var/www/html
+```
+Now we need to change blowfish_secret in PHPMyAdmin config.
+blowfish_secret is using to encrypt passwords in cookie. Recommended length is 32 chars.
+First of all make config.inc.php file by copying its sample:
+```
+sudo cp /usr/share/phpmyadmin/config.sample.inc.php /usr/share/phpmyadmin/config.inc.php
+```
+```
+sudo vim /usr/share/phpmyadmin/config.inc.php
+```
+Locate following line: ```$cfg['blowfish_secret'] = '';```
+Now enter your secret between '' and save file.
+
+Last step is creating phpmyadmin database.
+Go to http://192.168.0.26/phpmyadmin.
+Login to phpmyadmin.
+
+### FTP SERVER - proftpd
+ProFTPD is a popular ftp server. Because it was written as a powerful and configurable program, it is not necessarily the lightest ftp server available for virtual servers.  
+You can quickly install ProFTP on your VPS in the command line:  
+```
+apt-get -y install proftpd
+```
+While the file is installing, you will be given the choice to run your VPS as an inetd or standalone server. Choose the standalone option.  
+After it fisinhed the proftpd is installed, but we still need to configure it!  
+
+Once ProFTPD is installed, you can make the needed adjustments in the configuration. Unlike some other FTP configurations, ProFTPD disables anonymous login from the outset and we only need to make a couple of alterations in the config file.
+
+Open up the file:
+```
+nano /etc/proftpd/proftpd.conf
+```
+Go ahead and make a few changes:  
+ - Change the Server Name to your host name
+```
+ServerName                      "example.com"
+```
+ - Uncomment the line that says Default Root. 
+ - Its value will limit the user's access to that specific directory
+ - If we want the use to see only the home directory use '~'
+ - But now we want the user to access the '/var/www/html' folder  to upload a php framework
+```
+# Use this to jail all users in their homes
+DefaultRoot                    /var/www/html
+```
+ - To be able to create new files and directories inside the default directory we should add the following lines 
+```
+<Directory /var/www/html>
+Umask 022 022
+AllowOverwrite on
+    <Limit READ>
+        DenyAll
+        </Limit>
+        <Limit STOR CWD MKD RMD DELE XRMD XMKD>
+        AllowAll
+        </Limit>
+</Directory>
+```
+ - And also set the directory to be writeable. for now we will use 777
+```
+chmod -R 777 /var/www/html/
+```
+ - Once you have finished those adjustments, you can save and exit.
+ - Restart after you have made all of your changes:
+```
+sudo service proftpd restart
+```
+Once you have installed the FTP server and configured it to your liking, you can now access it.
+
+_NOTE: If proftpd would not start with the system by default use this command:_
+```update-rc.d proftpd defaults```  
+You can reach an FTP server in the browser by typing the domain name into the address bar and logging in with the appropriate ID. Keep in mind, you will only be able to access the user's home directory when connecting to the virtual server.
+```
+ftp://example.com
+```
+Alternatively, you can reach the FTP server through the command line by typing:
+```
+ftp example.com
+```
+Then you can use the word, "exit," to get out of the FTP shell.
+
+Now if we open an ftp client like filezilla we are able to connect to the ftp server and mangage our site.
+
+To download filezilla use the following command:
+```
+apt-get install filezilla
+```
+Then run it and fill in the host,username,password,port with the server's host,username,password and port. Then quickconnect.   
+ ![proftpd](http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_18_31_15_www.kepfeltoltes.hu_.png "proftpd")  
+
+On the left side it's already navigated to the Downloads folder and there is an unzipped Codeigniter sourcecode. Copy content of that folder to the server. 
+
+After you have copied all the files you should see the following when you navigate your browser to http://192.168.0.26/  
+ ![codeigniter](http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_18_49_28_www.kepfeltoltes.hu_.png "codeigniter")  
+
+NOTE: Since we are using lighttpd most php webservices might not work properly due to the .htaccess file, which is for apache and not for lighttpd. Fortunately  [here](https://redmine.lighttpd.net/projects/1/wiki/MigratingFromApache) is a tutorial about migrating from apache to lighty. 
+
+### Mailing server - PostFix
+##### Install Postfix
+Postfix is included in Ubuntu's default repositories, so installation is incredibly simple.
+
+To begin, update your local apt package cache and then install the software. We will be passing in the DEBIAN_PRIORITY=low environmental variable into our installation command in order to answer some additional prompts:
+```
+sudo apt-get update
+sudo DEBIAN_PRIORITY=low apt-get install postfix
+```
+Use the following information to fill in your prompts correctly for your environment:
+ - __General type of mail configuration?:__ For this, we will choose Internet Site since this matches our infrastructure needs.
+ - __System mail name:__ This is the base domain used to construct a valid email address when only the account portion of the address is given. For instance, the hostname of our server is mail.example.com, but we probably want to set the system mail name to example.com so that given the username user1, Postfix will use the address user1@example.com.
+ - __Root and postmaster mail recipient:__ This is the Linux account that will be forwarded mail addressed to root@ and postmaster@. Use your primary account for this. In our case, sammy.
+ - __Other destinations to accept mail for:__ This defines the mail destinations that this Postfix instance will accept. If you need to add any other domains that this server will be responsible for receiving, add those here, otherwise, the default should work fine.
+ - __Force synchronous updates on mail queue?:__ Since you are likely using a journaled filesystem, accept No here.
+ - __Local networks:__ This is a list of the networks that your mail server is configured to relay messages for. The default should work for most scenarios. If you choose to modify it, make sure to be very restrictive in regards to the network range.
+ - __Mailbox size limit:__ This can be used to limit the size of messages. Setting it to "0" disables any size restriction.
+ - __Local address extension character:__ This is the character that can be used to separate the regular portion of the address from an extension (used to create dynamic aliases).
+ - __Internet protocols to use:__ Choose whether to restrict the IP version that Postfix supports. We'll pick "all" for our purposes.
+
+To be explicit, these are the settings we'll use for this guide:
+```
+sudo dpkg-reconfigure postfix
+```
+The prompts will be pre-populated with your previous responses.
+When you are finished, we can now do a bit more configuration to set up our system how we'd like it.
+
+#### Tweak the Postfix Configuration
+Next, we can adjust some settings that the package did not prompt us for.
+
+To begin, we can set the mailbox. We will use the Maildir format, which separates messages into individual files that are then moved between directories based on user action. The other option is the mbox format (which we won't cover here) which stores all messages within a single file.
+
+We will set the home_mailbox variable to Maildir/ which will create a directory structure under that name within the user's home directory. The postconf command can be used to query or set configuration settings. Configure home_mailbox by typing:
+```
+sudo postconf -e 'home_mailbox= Maildir/'
+```
+Next, we can set the location of the virtual_alias_maps table. This table maps arbitrary email accounts to Linux system accounts. We will create this table at /etc/postfix/virtual. Again, we can use the postconf command:
+```
+sudo postconf -e 'virtual_alias_maps= hash:/etc/postfix/virtual'
+```
+##### Map Mail Addresses to Linux Accounts
+Next, we can set up the virtual maps file. Open the file in your text editor:
+```
+sudo nano /etc/postfix/virtual
+```
+The virtual alias map table uses a very simple format. On the left, you can list any addresses that you wish to accept email for. Afterwards, separated by whitespace, enter the Linux user you'd like that mail delivered to.
+
+For example, if you would like to accept email at contact@example.com and admin@example.com and would like to have those emails delivered to the sammy Linux user, you could set up your file like this:
+```
+/etc/postfix/virtual
+contact@example.com sammy
+admin@example.com sammy
+```
+After you've mapped all of the addresses to the appropriate server accounts, save and close the file.
+
+We can apply the mapping by typing:
+```
+sudo postmap /etc/postfix/virtual
+```
+Restart the Postfix process to be sure that all of our changes have been applied:
+```
+sudo systemctl restart postfix
+```
+##### Adjust the Firewall
+If you are running the UFW firewall, as configured in the initial server setup guide, we'll have to allow an exception for Postfix.
+
+You can allow connections to the service by typing:
+```
+sudo ufw allow Postfix
+```
+The Postfix server component is installed and ready. Next, we will set up a client that can handle the mail that Postfix will process.
+
+#####  Setting up the Environment to Match the Mail Location
+Before we install a client, we should make sure our MAIL environmental variable is set correctly. The client will inspect this variable to figure out where to look for user's mail.
+
+In order for the variable to be set regardless of how you access your account (through ssh, su, su -, sudo, etc.) we need to set the variable in a few different locations. We'll add it to /etc/bash.bashrc and a file within /etc/profile.d to make sure each user has this configured.
+
+To add the variable to these files, type:
+```
+echo 'export MAIL=~/Maildir' | sudo tee -a /etc/bash.bashrc | sudo tee -a /etc/profile.d/mail.sh
+```
+To read the variable into your current session, you can source the /etc/profile.d/mail.sh file:
+```
+source /etc/profile.d/mail.sh
+```
+##### Install and Configure the Mail Client
+In order to interact with the mail being delivered, we will install the s-nail package. This is a variant of the BSD xmail client, which is feature-rich, can handle the Maildir format correctly, and is mostly backwards compatible. The GNU version of mail has some frustrating limitations, such as always saving read mail to the mbox format regardless of the source format.
+
+To install the s-nail package, type:
+```
+sudo apt-get install s-nail
+```
+We should adjust a few settings. Open the /etc/s-nail.rc file in your editor:
+```
+sudo nano /etc/s-nail.rc
+```
+Towards the bottom of the file, add the following options:
+```
+/etc/s-nail.rc
+. . .
+set emptystart
+set folder=Maildir
+set record=+sent
+```
+This will allow the client to open even with an empty inbox. It will also set the Maildir directory to the internal folder variable and then use this to create a sent mbox file within that, for storing sent mail.
+
+Save and close the file when you are finished.
+
+##### Initialize the Maildir and Test the Client
+Now, we can test the client out.
+
+Initializing the Directory Structure
+The easiest way to create the Maildir structure within our home directory is to send ourselves an email. We can do this with the mail command. Because the sent file will only be available once the Maildir is created, we should disable writing to that for our initial email. We can do this by passing the -Snorecord option.
+
+Send the email by piping a string to the mail command. Adjust the command to mark your Linux user as the recipient:
+```
+echo 'init' | mail -s 'init' -Snorecord sammy
+```
+You should get the following response:
+
+Output
+```
+Can't canonicalize "/home/sammy/Maildir"
+```
+This is normal and will only show during this first message. We can check to make sure the directory was created by looking for our ~/Maildir directory:
+```
+ls -R ~/Maildir
+```
+You should see the directory structure has been created and that a new message file is in the ~/Maildir/new directory:
+
+If it is not working try to include mail.example.com inside of mydestination
+```
+sudo vim /etc/postfix/main.cf 
+```
+Output
+```
+/home/sammy/Maildir/:
+cur  new  tmp
+
+/home/sammy/Maildir/cur:
+
+/home/sammy/Maildir/new:
+1463177269.Vfd01I40e4dM691221.mail.example.com
+
+/home/sammy/Maildir/tmp:
+It looks like our mail has been delivered.
+```
+Managing Mail with the Client
+Use the client to check your mail:
+```
+mail
+```
+You should see your new message waiting:
+
+Output
+```
+s-nail version v14.8.6.  Type ? for help.
+"/home/sammy/Maildir": 1 message 1 new
+>N  1 sammy@example.com     Wed Dec 31 19:00   14/369   init
+```
+Just hitting ENTER should display your message:
+Output
+```
+[-- Message  1 -- 14 lines, 369 bytes --]:
+From sammy@example.com Wed Dec 31 19:00:00 1969
+Date: Fri, 13 May 2016 18:07:49 -0400
+To: sammy@example.com
+Subject: init
+Message-Id: <20160513220749.A278F228D9@mail.example.com>
+From: sammy@example.com
+
+init
+```
+You can get back to your message list by typing h:```h```
+Output
+```
+s-nail version v14.8.6.  Type ? for help.
+"/home/sammy/Maildir": 1 message 1 new
+>R  1 sammy@example.com     Wed Dec 31 19:00   14/369   init
+```
+Since this message isn't very useful, we can delete it with d:```d```
+Quit to get back to the terminal by typing q:```q```
+Sending Mail with the Client
+You can test sending mail by typing a message in a text editor:
+```
+nano ~/test_message
+```
+Inside, enter some text you'd like to email:
+```
+Hello,
+
+This is a test.  Please confirm receipt!
+```
+Using the cat command, we can pipe the message to the mail process. This will send the message as your Linux user by default. You can adjust the "From" field with the -r flag if you want to modify that value to something else:
+```
+cat ~/test_message | mail -s 'Test email subject line' -r from_field_account user@email.com
+```
+The options above are:
+
+ - ```-s```: The subject line of the email
+ - ```-r```: An optional change to the "From:" field of the email. By default, the Linux user you are logged in as will be used to populate this field. The -r option allows you to override this.
+ - ```user@email.com```: The account to send the email to. Change this to be a valid account you have access to.
+You can view your sent messages within your ```mail``` client. Start the interactive client again by typing:
+```
+# mail
+```
+Afterwards, view your sent messages by typing:
+```
+? file +sent
+```
+
+![Mail](http://i.imgur.com/YFvu6Uy.png "Mail") 
+You can manage sent mail using the same commands you use for incoming mail.
 
 
 
