@@ -1562,7 +1562,7 @@ You now also have the possibility to let the installer create an SSL vhost for t
 Afterwards you can access ISPConfig 3 under *http(s)://server1.example.com:8080/* or *http(s)://192.168.0.100:8080/* ( http or https depends on what you chose during installation). Log in with the username admin and the password admin (you should change the default password after your first login):
 
 
-
+![Ispconfig](http://i.imgur.com/osjAyR3.png "Ispconfig")
 
 
 
