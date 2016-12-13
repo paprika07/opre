@@ -373,7 +373,6 @@ sudo vim /etc/php/7.0/fpm/php.ini
 ; http://php.net/cgi.fix-pathinfo
 cgi.fix_pathinfo=0
 ...
-```
 Reload PHP-FPM:
 ```
 service php7.0-fpm reload
