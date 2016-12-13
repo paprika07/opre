@@ -503,15 +503,18 @@ sudo vim /usr/share/phpmyadmin/config.inc.php
 Locate following line: ```$cfg['blowfish_secret'] = '';```
 Now enter your secret between '' and save file.
 
-Last step is creating phpmyadmin database.
-Go to http://192.168.0.26/phpmyadmin.
-Login to phpmyadmin.
+Now the phpMyAdmin should load under http://192.168.0.26/phpmyadmin  
+ ![phpMyAdmin]( http://kepfeltoltes.hu/161108/Screenshot_at_2016-11-08_22_16_55_www.kepfeltoltes.hu_.png "phpMyAdmin")  
+Now you can login with the mysql user for localhost.
+After login you should see something like:  
+ ![phpMyAdmin logged](http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_17_32_16_www.kepfeltoltes.hu_.png "phpMyAdmin logged")  
 
+Now that we have php and mysql configured and runnig we could install some php framework, but first set up the fpd server to make it easier 
 ### FTP SERVER - proftpd
 ProFTPD is a popular ftp server. Because it was written as a powerful and configurable program, it is not necessarily the lightest ftp server available for virtual servers.  
 You can quickly install ProFTP on your VPS in the command line:  
 ```
-apt-get -y install proftpd
+sudo apt-get -y install proftpd
 ```
 While the file is installing, you will be given the choice to run your VPS as an inetd or standalone server. Choose the standalone option.  
 After it fisinhed the proftpd is installed, but we still need to configure it!  
@@ -520,7 +523,7 @@ Once ProFTPD is installed, you can make the needed adjustments in the configurat
 
 Open up the file:
 ```
-nano /etc/proftpd/proftpd.conf
+sudo vim /etc/proftpd/proftpd.conf
 ```
 Go ahead and make a few changes:  
  - Change the Server Name to your host name
@@ -550,7 +553,7 @@ AllowOverwrite on
 ```
  - And also set the directory to be writeable. for now we will use 777
 ```
-chmod -R 777 /var/www/html/
+sudo chmod -R 777 /var/www/html/
 ```
  - Once you have finished those adjustments, you can save and exit.
  - Restart after you have made all of your changes:
@@ -588,7 +591,6 @@ After you have copied all the files you should see the following when you naviga
 NOTE: Since we are using lighttpd most php webservices might not work properly due to the .htaccess file, which is for apache and not for lighttpd. Fortunately  [here](https://redmine.lighttpd.net/projects/1/wiki/MigratingFromApache) is a tutorial about migrating from apache to lighty. 
 
 ### Mailing server - PostFix
-##### Install Postfix
 Postfix is included in Ubuntu's default repositories, so installation is incredibly simple.
 
 To begin, update your local apt package cache and then install the software. We will be passing in the DEBIAN_PRIORITY=low environmental variable into our installation command in order to answer some additional prompts:
