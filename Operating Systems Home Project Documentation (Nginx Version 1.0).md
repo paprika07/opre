@@ -1565,6 +1565,35 @@ Afterwards you can access ISPConfig 3 under *http(s)://server1.example.com:8080/
 ![Ispconfig](http://i.imgur.com/osjAyR3.png "Ispconfig")
 
 
+### Make the services available from outside networks as well
+My network hoster is UPC Hungary. I will show how to set the appropriate ports on their admin side. Yours should be similar too. 
+
+Go to : http://192.168.0.1/ and login. NOTE: In UPC the default username and password is always 'admin'-'admin'. Adviced to change them! 
+
+![upc](http://i.imgur.com/7TWcI4b.png "upc") 
+
+After login you will be able to see your network details. 
+
+Go to Általános(Basic) menu item and you should see your IP Address:
+My IP address in this case was: 89.133.123.176
+Since I do not bought a fix ip address service from UPC my ip address changes dynamicly. In this case the IP will change in 2016-12-07 16:15:26
+Later we will fix the static ip address problem.
+![upc](http://i.imgur.com/EJ5gexD.png"upc") 
+
+These are the default ports services uses.
+![ports](https://scontent-vie1-1.xx.fbcdn.net/v/t1.0-0/s526x395/14484771_1231763793532373_8029665007327781424_n.jpg?oh=a0b53f5c37e1eeb59269668bd903a5c5&oe=588FDBDE "ports") 
+
+
+Right now the webserver is not available at all. If you go to http://89.133.123.176 you should not get the website of your webserver. This is becouse ports are not enabled for it.
+
+So enable the port for the webserver. By default websites are on port 80.
+Go to Advanced and then Forwarding submenu. There set up the following and save it!
+
+![upc](http://i.imgur.com/wdhGRvP.png"upc") 
+
+Now if you go to http://89.133.123.176 You should see your webserver working.
+
+You can add your neccessary ports here as well. 
 
 
 
