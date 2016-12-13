@@ -885,6 +885,96 @@ You can manage sent mail using the same commands you use for incoming mail.
 
 
 
+### Install Mailman
+
+Since version 3.0.4, ISPConfig also allows you to manage (create/modify/delete) Mailman mailing lists. If you want to make use of this feature, install Mailman as follows:
+```
+apt-get install mailman
+```
+Select at least one language, e.g.:
+ - Languages to support: <-- en (English) 
+ - Missing site list <-- Ok
+
+Before we can start Mailman, a first mailing list called mailman must be created:
+```
+newlist mailman
+```
+You will be asked for some input.
+ - Enter the email of the person running the list: <-- admin email address, e.g. listadmin@example.com
+ - Initial mailman password: <-- admin password for the mailman list
+
+To finish creating your mailing list, you must edit your /etc/aliases (or
+equivalent) file by adding the following lines, and possibly running the
+`newaliases' program:
+```
+## mailman mailing list
+mailman:              "|/var/lib/mailman/mail/mailman post mailman"
+mailman-admin:        "|/var/lib/mailman/mail/mailman admin mailman"
+mailman-bounces:      "|/var/lib/mailman/mail/mailman bounces mailman"
+mailman-confirm:      "|/var/lib/mailman/mail/mailman confirm mailman"
+mailman-join:         "|/var/lib/mailman/mail/mailman join mailman"
+mailman-leave:        "|/var/lib/mailman/mail/mailman leave mailman"
+mailman-owner:        "|/var/lib/mailman/mail/mailman owner mailman"
+mailman-request:      "|/var/lib/mailman/mail/mailman request mailman"
+mailman-subscribe:    "|/var/lib/mailman/mail/mailman subscribe mailman"
+mailman-unsubscribe:  "|/var/lib/mailman/mail/mailman unsubscribe mailman"
+```
+Hit enter to notify mailman owner... <-- ENTER
+```
+Open /etc/aliases afterwards...
+vi /etc/aliases
+```
+```
+...
+## mailman mailing list
+mailman:              "|/var/lib/mailman/mail/mailman post mailman"
+mailman-admin:        "|/var/lib/mailman/mail/mailman admin mailman"
+mailman-bounces:      "|/var/lib/mailman/mail/mailman bounces mailman"
+mailman-confirm:      "|/var/lib/mailman/mail/mailman confirm mailman"
+mailman-join:         "|/var/lib/mailman/mail/mailman join mailman"
+mailman-leave:        "|/var/lib/mailman/mail/mailman leave mailman"
+mailman-owner:        "|/var/lib/mailman/mail/mailman owner mailman"
+mailman-request:      "|/var/lib/mailman/mail/mailman request mailman"
+mailman-subscribe:    "|/var/lib/mailman/mail/mailman subscribe mailman"
+mailman-unsubscribe:  "|/var/lib/mailman/mail/mailman unsubscribe mailman"
+```
+Run
+```
+newaliases
+```
+afterwards and restart Postfix:
+```
+service postfix restart
+```
+Then start the Mailman daemon:
+```
+service mailman start
+```
+After you have installed ISPConfig 3, you can access Mailman as follows:
+The ISPConfig apps vhost on port 8081 for nginx comes with a Mailman configuration, so you can use http://server1.example.com:8081/cgi-bin/mailman/admin/<listname> or http://server1.example.com:8081/cgi-bin/mailman/listinfo/<listname> to access Mailman.
+If you want to use Mailman from your web sites, this is a bit more complicated than for Apache because nginx does not have global aliases (i.e., aliases that can be defined for all vhosts). Therefore you have to define these aliases for each vhost from which you want to access Mailman.
+To do this, paste the following into the nginx Directives field on the Options tab of the web site in ISPConfig:
+        location /cgi-bin/mailman {
+               root /usr/lib/;
+               fastcgi_split_path_info (^/cgi-bin/mailman/[^/]*)(.*)$;
+               include /etc/nginx/fastcgi_params;
+               fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+               fastcgi_param PATH_INFO $fastcgi_path_info;
+               fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;
+               fastcgi_intercept_errors on;
+               fastcgi_pass unix:/var/run/fcgiwrap.socket;
+        }
+
+        location /images/mailman {
+               alias /usr/share/images/mailman;
+        }
+
+        location /pipermail {
+               alias /var/lib/mailman/archives/public;
+               autoindex on;
+        }
+This defines the alias /cgi-bin/mailman/ for your vhost, which means you can access the Mailman admin interface for a list at http://<vhost>/cgi-bin/mailman/admin/<listname>, and the web page for users of a mailing list can be found at http://<vhost>/cgi-bin/mailman/listinfo/<listname>.
+Under http://<vhost>/pipermail you can find the mailing list archives.
 
 
 
