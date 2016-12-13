@@ -981,6 +981,43 @@ To do this, paste the following into the nginx Directives field on the Options t
 This defines the alias */cgi-bin/mailman/* for your vhost, which means you can access the Mailman admin interface for a list at *http://<vhost>/cgi-bin/mailman/admin/<listname>*, and the web page for users of a mailing list can be found at *http://<vhost>/cgi-bin/mailman/listinfo/<listname>*.
 Under *http://<vhost>/pipermail* you can find the mailing list archives.
 
+#### BIND DNS Server
+BIND can be installed as follows:
+```
+sudo apt-get install bind9 dnsutils
+```
+
+#### Install Vlogger, Webalizer, And AWstats
+
+Vlogger, webalizer, and AWstats can be installed as follows:
+```
+sudo apt-get install vlogger webalizer awstats geoip-database libclass-dbi-mysql-perl
+```
+Open /etc/cron.d/awstats afterwards...
+```
+sudo vim /etc/cron.d/awstats
+```
+... and comment out everything in that file:
+
+#### Install Jailkit
+
+Jailkit is needed only if you want to chroot SSH users. It can be installed as follows (important: Jailkit must be installed before ISPConfig - it cannot be installed afterwards!):
+apt-get install build-essential autoconf automake1.9 libtool flex bison debhelper binutils-gold
+```
+cd /tmp
+wget http://olivier.sessink.nl/jailkit/jailkit-2.15.tar.gz
+tar xvfz jailkit-2.15.tar.gz
+cd jailkit-2.15
+sudo ./debian/rules binary
+```
+You can now install the Jailkit .deb package as follows:
+```
+cd ..
+sudo dpkg -i jailkit_2.15-1_*.deb
+sudo rm -rf jailkit-2.15*
+```
+
+
 
 
 
