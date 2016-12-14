@@ -197,9 +197,10 @@ To install mysql use the following commands
 sudo apt-get -y install mysql-server mysql-client
 ```
 You will be asked to provide a password for the MySQL root user - this password is valid for the user root@localhost as well as root@server1.example.com, so we don't have to specify a MySQL root password manually later on:  
->New password for the MySQL "root" user: -> __yourrootsqlpassword__  
+```
+New password for the MySQL "root" user: -> __yourrootsqlpassword__  
 Repeat password for the MySQL "root" user: -> __yourrootsqlpassword__
->
+```
 The installer has set a MySQL root password, but there are some more settings that should be changed for a secure MySQL installation. This can be done with the mysql_secure_installation command.  
 ##### This program enables you to improve the security of your MySQL installation in the following ways:
  - You can set a password for root accounts.
