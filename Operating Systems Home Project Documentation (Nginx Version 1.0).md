@@ -510,6 +510,7 @@ After login you should see something like:
 Now that we have php and mysql configured and runnig we could install some php framework, but first set up the fpd server to make it easier
 
 *__(Optional:) Enable Configuration Storage__*
+__NOTE__: If you are planning to use ISPCONFIG 3 you should do this as well!
 By default, some of extra options such as change tracking, table linking, and bookmarking queries are disabled.
 You need to enable it you should do following:
 Open config.inc.php with text editor.
