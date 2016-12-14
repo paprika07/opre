@@ -555,6 +555,119 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON phpmyadmin.* TO 'pma'@'localhost' IDENTI
 ```
 This will create in same time create MySQL user and Grant needed privileges.
 
+##### After you have installed ISPConfig 3, you can access phpMyAdmin as follows:
+The ISPConfig apps vhost on port 8081 for nginx comes with a phpMyAdmin configuration, so you can use *http://server1.example.com:8081/phpmyadmin* or *http://server1.example.com:8081/phpMyAdmin* to access phpMyAdmin.
+If you want to use a /phpmyadmin or /phpMyAdmin alias that you can use from your web sites, this is a bit more complicated than for Apache because nginx does not have global aliases (i.e., aliases that can be defined for all vhosts). Therefore you have to define these aliases for each vhost from which you want to access phpMyAdmin.
+
+To do this, paste the following into the nginx Directives field on the Options tab of the web site in ISPConfig:
+```
+        location /phpmyadmin {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/phpmyadmin/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/phpmyadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /phpMyAdmin {
+               rewrite ^/* /phpmyadmin last;
+        }
+```
+
+If you use https instead of http for your vhost, you should add the line fastcgi_param HTTPS on; to your phpMyAdmin configuration like this:
+
+```
+        location /phpmyadmin {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/phpmyadmin/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_param HTTPS on; # <-- add this line
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/phpmyadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /phpMyAdmin {
+               rewrite ^/* /phpmyadmin last;
+        }
+```
+If you use both http and https for your vhost, you need to add the following section to the http {} section in /etc/nginx/nginx.conf (before any include lines) which determines if the visitor uses http or https and sets the $fastcgi_https variable (which we will use in our phpMyAdmin configuration) accordingly:
+```
+sudo vim /etc/nginx/nginx.conf
+```
+```
+...
+http {
+...
+        ## Detect when HTTPS is used
+        map $scheme $fastcgi_https {
+          default off;
+          https on;
+
+        }
+...
+}
+...
+```
+Don't forget to reload nginx afterwards:
+```
+service nginx reload
+```
+Then go to the nginx Directives field again, and instead of fastcgi_param HTTPS on; you add the line fastcgi_param HTTPS $fastcgi_https; so that you can use phpMyAdmin for both http and https requests:
+```
+        location /phpmyadmin {
+               root /usr/share/;
+               index index.php index.html index.htm;
+               location ~ ^/phpmyadmin/(.+\.php)$ {
+                       try_files $uri =404;
+                       root /usr/share/;
+                       fastcgi_pass unix:/var/run/php5-fpm.sock;
+                       fastcgi_param HTTPS $fastcgi_https; # <-- add this line
+                       fastcgi_index index.php;
+                       fastcgi_param SCRIPT_FILENAME $request_filename;
+                       include /etc/nginx/fastcgi_params;
+                       fastcgi_param PATH_INFO $fastcgi_script_name;
+                       fastcgi_buffer_size 128k;
+                       fastcgi_buffers 256 4k;
+                       fastcgi_busy_buffers_size 256k;
+                       fastcgi_temp_file_write_size 256k;
+                       fastcgi_intercept_errors on;
+               }
+               location ~* ^/phpmyadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
+                       root /usr/share/;
+               }
+        }
+        location /phpMyAdmin {
+               rewrite ^/* /phpmyadmin last;
+        }
+```
+
+
 ### FTP SERVER - proftpd
 ProFTPD is a popular ftp server. Because it was written as a powerful and configurable program, it is not necessarily the lightest ftp server available for virtual servers.  
 You can quickly install ProFTP on your VPS in the command line:  
