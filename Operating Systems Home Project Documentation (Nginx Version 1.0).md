@@ -835,7 +835,7 @@ SQLNamedQuery updatecount UPDATE "count=count+1, accessed=now() WHERE username='
 
 # Update modified everytime user uploads or deletes a file
 SQLLog  STOR,DELE modified
-SQLNamedQuery modified UPDATE "modified=now() WHERE userid='%u'" ftpuser
+SQLNamedQuery modified UPDATE "modified=now() WHERE ftp_user_id='%u'" ftp_user
 
 RootLogin off
 
