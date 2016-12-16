@@ -1870,6 +1870,114 @@ Afterwards you can access ISPConfig 3 under *http(s)://server1.example.com:8080/
 ![Ispconfig](http://i.imgur.com/osjAyR3.png "Ispconfig")
 
 
+### Roundcube
+
+We can install RoundCube as follows:
+```
+sudo apt-get install roundcube roundcube-plugins roundcube-plugins-extra
+```
+You will see the following questions:
+```
+Configure database for roundcube with dbconfig-common? <-- Yes
+Database type to be used by roundcube: <-- mysql
+Password of the database's administrative user: <-- yourrootsqlpassword (the password of the MySQL root user) 
+MySQL application password for roundcube: <-- roundcubesqlpassword
+Password confirmation: <-- roundcubesqlpassword
+```
+This will create a MySQL database called roundcube with the MySQL user roundcube and the password roundcubesqlpassword.
+Next go to your website in ISPConfig. On the Options tab, you will see the nginx Directives field:
+
+
+Fill in the following directives and click on Save (it does not matter if you have PHP enabled for this vhost or not because this code snippet uses the system's default PHP which runs under the user and group www-data which is important because RoundCube is installed outside of the vhost's document root - in /var/lib/roundcube):
+```
+location /roundcube {
+         root /var/lib/;
+         index index.php index.html index.htm;
+         location ~ (.+\.php)$ {
+                    try_files $uri =404;
+				   root  /var/lib/roundcube/;
+				   fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+				   fastcgi_index index.php;
+				   fastcgi_param SCRIPT_FILENAME $request_filename;
+				   include /etc/nginx/fastcgi_params;
+				   fastcgi_param PATH_INFO $fastcgi_script_name;
+				   fastcgi_buffer_size 128k;
+				   fastcgi_buffers 256 4k;
+				   fastcgi_busy_buffers_size 256k;
+				   fastcgi_temp_file_write_size 256k;
+				   fastcgi_intercept_errors on;
+         }
+         location ~* /.svn/ {
+                     deny all;
+         }
+         location ~* /README|INSTALL|LICENSE|SQL|bin|CHANGELOG$ {
+                     deny all;
+         }
+}
+location /webmail {
+         rewrite ^ /roundcube last;
+}
+```
+With this configuration, RoundCube will be accessible under the URLs http://www.example.com/webmail and http://www.example.com/roundcube.
+### Configuring RoundCube
+
+Open /etc/roundcube/main.inc.php...
+```
+sudo vim /etc/roundcube/main.inc.php
+```
+... and set $rcmail_config['default_host'] = 'localhost'; (or the hostname or IP address of your mail server if it is on a remote machine):
+```
+[...]
+$rcmail_config['default_host'] = 'localhost';
+[...]
+```
+Otherwise RoundCube will ask for a hostname before each login which might overstrain your users - we want to make usage as easy as possible.
+Next install the ISPConfig 3 plugins for RoundCube:
+```
+cd /tmp
+git clone https://github.com/w2c/ispconfig3_roundcube.git
+cd /tmp/ispconfig3_roundcube/
+sudo mv ispconfig3_* /usr/share/roundcube/
+cd /usr/share/roundcube/
+sudo mv ispconfig3_account/config/config.inc.php.dist ispconfig3_account/config/config.inc.php
+sudo ln -s /usr/share/roundcube/ispconfig3_* /var/lib/roundcube/plugins/
+```
+Open ispconfig3_account/config/config.inc.php...
+```
+sudo vim ispconfig3_account/config/config.inc.php
+```
+... and fill in the login details of your ISPConfig remote user and the URL of the remote API - my ISPConfig installation runs on https://192.168.0.26:8080, so the URL of the remote API is https://192.168.0.26:8080/remote/:
+```
+<?php
+$rcmail_config['identity_limit'] = false;
+$rcmail_config['remote_soap_user'] = 'roundcube';
+$rcmail_config['remote_soap_pass'] = 'Sw0wlytlRt3MY';
+$rcmail_config['soap_url'] = 'https://192.168.0.26:8080/remote/';
+?>
+Finally open /etc/roundcube/main.inc.php again...
+```
+sudo vim /etc/roundcube/main.inc.php
+```
+... and enable the jquerui plugin plus the ISPConfig 3 plugins...
+```
+[...]
+// ----------------------------------
+// PLUGINS
+// ----------------------------------
+
+// List of active plugins (in plugins/ directory)
+//$config['plugins'] = array(); <- __If you have something in this array include that as well__
+$config['plugins'] = array("jqueryui", "ispconfig3_account", "ispconfig3_autoreply", "ispconfig3_pass", "ispconfig3_spam", "ispconfig3_fetchmail", "ispconfig3_filter");
+[...]
+```
+... and change the skin from default to classic (otherwise the ISPConfig 3 plugins will not work):
+```
+[...]
+// skin name: folder from skins/
+$config['skin'] = 'classic';
+[...]
+```
+THat's it. Now you can access roundcube as well.
 ### Make the services available from outside networks as well
 My network hoster is UPC Hungary. I will show how to set the appropriate ports on their admin side. Yours should be similar too. 
 
