@@ -1954,6 +1954,7 @@ $rcmail_config['remote_soap_user'] = 'roundcube';
 $rcmail_config['remote_soap_pass'] = 'Sw0wlytlRt3MY';
 $rcmail_config['soap_url'] = 'https://192.168.0.26:8080/remote/';
 ?>
+```
 Finally open /etc/roundcube/main.inc.php again...
 ```
 sudo vim /etc/roundcube/main.inc.php
