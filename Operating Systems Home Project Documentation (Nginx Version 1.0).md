@@ -936,6 +936,7 @@ Restart ProFTPd afterward:``` sudo systemctl restart proftpd.service```
 That's it. You can now try to connect using your FTP client; however, you should configure your FTP client to use TLS (this is a must if you use TLSRequired on) - see the next chapter how to do this with FileZilla.
 If you're having problems with TLS, you can take a look at the TLS log file /var/log/proftpd/tls.log.
 
+I also had to add forwarding prots 49152-65534 to my routers config.
 
 ### Install Amavisd-new, SpamAssassin, And Clamav
 To install amavisd-new, SpamAssassin, and ClamAV, we run
