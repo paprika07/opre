@@ -746,7 +746,196 @@ On the left side it's already navigated to the Downloads folder and there is an 
 After you have copied all the files you should see the following when you navigate your browser to http://192.168.0.26/  
  ![codeigniter](http://kepfeltoltes.hu/161109/Screenshot_at_2016-11-09_18_49_28_www.kepfeltoltes.hu_.png "codeigniter")  
 
-NOTE: Since we are using lighttpd most php webservices might not work properly due to the .htaccess file, which is for apache and not for lighttpd. Fortunately  [here](https://redmine.lighttpd.net/projects/1/wiki/MigratingFromApache) is a tutorial about migrating from apache to lighty. 
+### ISPConfig 3 ProFTPd 
+Install mod mysql
+```
+sudo apt-get install proftpd-mod-mysql
+```
+##### Database Configuration
+```
+mysql -u root -p
+Use dbispconfig
+```
+Run query:
+```
+ALTER TABLE `ftp_user` ADD `shell` VARCHAR( 18 ) NOT NULL DEFAULT
+'/sbin/nologin',
+ADD `count` INT( 11 ) NOT NULL DEFAULT '0',
+ADD `accessed` DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
+ADD `modified` DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00';
+CREATE TABLE ftp_group (
+	groupname varchar(16) NOT NULL default '',
+	gid smallint(6) NOT NULL default '5500',
+	members varchar(16) NOT NULL default '',
+	KEY groupname (groupname)
+) ENGINE=MyISAM COMMENT='ProFTP group table';
+INSERT INTO `ftp_group` (`groupname`, `gid`, `members`) VALUES
+('ftpgroup', 2001, 'ftpuser');
+```
+##### ProFTPd Configuration
+Edit /usr/local/ispconfig/interface/lib/config.inc.php:
+```
+sudo vim /usr/local/ispconfig/interface/lib/config.inc.php
+```
+Find variable db_password.
+Note password for later.
+ 
+Edit /etc/proftpd/proftpd.conf
+```
+sudo vim /etc/proftpd/proftpd.conf
+```
+Find: ```#Include /etc/proftpd/sql.conf```
+Change to: ```Include /etc/proftpd/sql.conf```
+
+Edit /etc/proftpd/sql.conf
+```
+sudo vim /etc/proftpd/sql.conf
+```
+Erase all contents and replace with:
+```
+#
+# Proftpd sample configuration for SQL-based authentication.
+#
+# (This is not to be used if you prefer a PAM-based SQL authentication)
+#
+
+<IfModule mod_sql.c>
+DefaultRoot ~
+
+SQLBackend mysql
+
+# The passwords in MySQL are encrypted using CRYPT
+
+SQLAuthTypes  Plaintext Crypt
+
+SQLAuthenticate         users groups
+
+# used to connect to the database
+# databasename@host database_user user_password
+SQLConnectInfo  dbispconfig@localhost ispconfig _insertpasswordhere_
+
+# Here we tell ProFTPd the names of the database columns in the "usertable"
+# we want it to interact with. Match the names with those in the db
+SQLUserInfo     ftp_user username password uid gid dir shell
+
+# Here we tell ProFTPd the names of the database columns in the "grouptable"
+
+# we want it to interact with. Again the names match with those in the db
+SQLGroupInfo    ftp_group groupname gid members
+
+# set min UID and GID - otherwise these are 999 each
+SQLMinID        500
+
+# create a user's home directory on demand if it doesn't exist
+CreateHome off
+
+# Update count every time user logs in
+SQLLog PASS updatecount
+SQLNamedQuery updatecount UPDATE "count=count+1, accessed=now() WHERE username='%u'" ftp_user 
+
+# Update modified everytime user uploads or deletes a file
+SQLLog  STOR,DELE modified
+SQLNamedQuery modified UPDATE "modified=now() WHERE userid='%u'" ftpuser
+
+RootLogin off
+
+RequireValidShell off
+
+</IfModule>
+```
+
+Be sure to change _insertpasswordhere_ to the password you retrieved from ISPConfig.
+If your MySQL database is on another server, change localhost to represent your MySQL server.
+ 
+Edit: /etc/proftpd/modules.conf
+```
+sudo vim /etc/proftpd/modules.conf
+```
+Find:```#LoadModule mod_sql.c```
+Change to:```LoadModule mod_sql.c```
+Find:```#LoadModule mod_sql_mysql.c```
+Change to:```LoadModule mod_sql_mysql.c```
+Run:```/etc/init.d/proftpd restart```
+
+##### ISPConfig 3 Changes
+
+Now we have to change one of the ispconfig files.  This isn't ideal, as if you upgrade to new version you'll lose the changes, but it is the only way to make proftpd work that I could find.
+ 
+Edit /usr/local/ispconfig/interface/web/sites/ftp_user_edit.php
+```
+sudo vim /usr/local/ispconfig/interface/web/sites/ftp_user_edit.php
+```
+Find:
+```
+$uid = $web["system_user"];
+$gid = $web["system_group"];
+```
+Replace with:
+```
+$userinfo = posix_getpwnam($web["system_user"]);
+$uid = $userinfo['uid'];
+$gid = $userinfo['gid'];
+```
+Note: if you are currently logged into ISPConfig's web panel you have to log out before changes are registered on your machine.
+#### Create the SSL Certificate for TLS
+
+In order to use TLS, we must create an SSL certificate. I create it in /etc/proftpd/ssl, therefore I create that directory first: ``` sudo mkdir /etc/proftpd/ssl```
+
+Afterward, we can generate the SSL certificate as follows:
+```
+sudo openssl req -new -x509 -days 365 -nodes -out /etc/proftpd/ssl/proftpd.cert.pem -keyout /etc/proftpd/ssl/proftpd.key.pem
+```
+```
+Country Name (2 letter code) [AU]: <-- Enter your Country Name (e.g., "DE").
+State or Province Name (full name) [Some-State]:<-- Enter your State or Province Name.
+Locality Name (eg, city) []:<-- Enter your City.
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:<-- Enter your Organization Name (e.g., the name of your company).
+Organizational Unit Name (eg, section) []:<-- Enter your Organizational Unit Name (e.g. "IT Department").
+Common Name (eg, YOUR name) []:<-- Enter the Fully Qualified Domain Name of the system (e.g. "server1.example.com").
+Email Address []:<-- Enter your Email Address.
+```
+ and secure the generated certificate files.
+```
+sudo chmod 600 /etc/proftpd/ssl/proftpd.*
+```
+#### Enable TLS in ProFTPd
+In order to enable TLS in ProFTPd, open /etc/proftpd/proftpd.conf...
+```
+sudo vim /etc/proftpd/proftpd.conf
+```
+... and uncomment the Include /etc/proftpd/tls.conf line:
+```
+[...]
+#
+# This is used for FTPS connections
+#
+Include /etc/proftpd/tls.conf
+[...]
+```
+Then open /etc/proftpd/tls.conf and make it look as follows:
+```
+sudo vim /etc/proftpd/tls.conf
+```
+```
+<IfModule mod_tls.c>
+TLSEngine                  on
+TLSLog                     /var/log/proftpd/tls.log
+TLSProtocol TLSv1.2
+TLSCipherSuite AES128+EECDH:AES128+EDH
+TLSOptions                 NoCertRequest AllowClientRenegotiations
+TLSRSACertificateFile      /etc/proftpd/ssl/proftpd.cert.pem
+TLSRSACertificateKeyFile   /etc/proftpd/ssl/proftpd.key.pem
+TLSVerifyClient            off
+TLSRequired                on
+RequireValidShell          no
+</IfModule>
+```
+If you use TLSRequired on, then only TLS connections are allowed (this locks out any users with old FTP clients that don't have TLS support); by commenting out that line or using TLSRequired off both TLS and non-TLS connections are allowed, depending on what the FTP client supports.
+Restart ProFTPd afterward:``` sudo systemctl restart proftpd.service```
+
+That's it. You can now try to connect using your FTP client; however, you should configure your FTP client to use TLS (this is a must if you use TLSRequired on) - see the next chapter how to do this with FileZilla.
+If you're having problems with TLS, you can take a look at the TLS log file /var/log/proftpd/tls.log.
+
 
 ### Install Amavisd-new, SpamAssassin, And Clamav
 To install amavisd-new, SpamAssassin, and ClamAV, we run
